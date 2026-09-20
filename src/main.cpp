@@ -270,8 +270,6 @@ void RenderImGui()
     static float f = 0.0f;
     static int counter = 0;
 
-    ImGui::Begin("Path Tracer Analytics");                  // Create a window called "Hello, world!" and append into it.
-    
     // LOOK: Un-Comment to check the output window and usage
     //ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
     //ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
@@ -284,8 +282,27 @@ void RenderImGui()
     //    counter++;
     //ImGui::SameLine();
     //ImGui::Text("counter = %d", counter);
+    ImGui::Begin("Pathtracer");
+    ImGui::Separator();
+    ImGui::Text("Settings");
+
+    char* renderTypeOptions[2] = {"Basic", "Pathtraced"};
+    ImGui::Combo("Render Type", &imguiData->RenderType, renderTypeOptions, 2);
+
+    ImGui::SliderInt("Max Ray Depth", &imguiData->MaxDepth, 1, 10);
+    
+    ImGui::Checkbox("Sort Rays by Material", &imguiData->SortRaysByMaterial);
+    if(ImGui::CollapsingHeader("Camera")) {
+        ImGui::SliderFloat("Focal Distance", &imguiData->FocalDistance, 1.0f, 25.0f, "%.1f");
+        ImGui::SliderFloat("FStop", &imguiData->ApertureFNumber, 1.0f, 100.0f, "%.1f");
+    }
+
+    ImGui::Separator();
+    ImGui::Text("Analytics");
+
     ImGui::Text("Traced Depth %d", imguiData->TracedDepth);
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
     ImGui::End();
 
 
@@ -340,6 +357,7 @@ void mainLoop()
 
 int main(int argc, char** argv)
 {
+
     startTimeString = currentTimeString();
 
     if (argc < 2)
@@ -360,7 +378,7 @@ int main(int argc, char** argv)
     iteration = 0;
     renderState = &scene->state;
     Camera& cam = renderState->camera;
-    width = cam.resolution.x;
+    width =  cam.resolution.x;
     height = cam.resolution.y;
 
     glm::vec3 view = cam.view;

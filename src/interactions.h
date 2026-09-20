@@ -15,6 +15,9 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(
     glm::vec3 normal, 
     thrust::default_random_engine& rng);
 
+// PBRT Method of taking the 8 Slices of a Square and warping them into a circle
+__host__ __device__ glm::vec2 calculateRandomPositionOnDisk(thrust::default_random_engine &rng);
+
 /**
  * Scatter a ray with some probabilities according to the material properties.
  * For example, a diffuse surface scatters in a cosine-weighted hemisphere.
@@ -45,4 +48,4 @@ __host__ __device__ void scatterRay(
     glm::vec3 intersect,
     glm::vec3 normal,
     const Material& m,
-    thrust::default_random_engine& rng);
+    thrust::default_random_engine& rng, float& outPdf);

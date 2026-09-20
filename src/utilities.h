@@ -14,12 +14,20 @@
 #define TWO_PI            6.2831853071795864769252867665590057683943f
 #define SQRT_OF_ONE_THIRD 0.5773502691896257645091487805019574556476f
 #define EPSILON           0.00001f
+#define IPI               0.31830988618f
 
 class GuiDataContainer
 {
 public:
     GuiDataContainer() : TracedDepth(0) {}
     int TracedDepth;
+    bool SortRaysByMaterial;
+    
+    // Settings
+    int MaxDepth = 5;
+    int RenderType = 1;
+    float FocalDistance = 11.5f;
+    float ApertureFNumber = 10.0f;
 };
 
 namespace utilityCore
