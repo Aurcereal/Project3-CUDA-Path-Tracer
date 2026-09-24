@@ -71,3 +71,9 @@ __host__ __device__ float sphereIntersectionTest(
     glm::vec3& intersectionPoint,
     glm::vec3& normal,
     bool& outside);
+
+// Plane has normal along Z+ and ranges from -0.5 to 0.5
+__host__ __device__ float planeIntersectionTest(Geom plane, Ray r, glm::vec3 &intersectionPoint, glm::vec3 &normal);
+
+//
+__host__ __device__ void sceneIntersectionTest(Geom* geoms, Ray r, int geoms_size, int& hit_geom_index, float& t_min, glm::vec3& intersect_point, glm::vec3& normal);

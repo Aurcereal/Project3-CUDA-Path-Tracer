@@ -56,6 +56,25 @@ __host__ __device__ float boxIntersectionTest(
     return -1;
 }
 
+__host__ __device__ float planeIntersectionTest(Geom plane, Ray r, glm::vec3 &intersectionPoint, glm::vec3 &normal) {
+    Ray q;
+    q.direction = multiplyMV(plane.inverseTransform, glm::vec4(r.direction, 0.0f));
+    q.origin = multiplyMV(plane.inverseTransform, glm::vec4(r.origin, 1.0f));
+
+    float t = -q.origin.z / q.direction.z;
+
+    glm::vec3 lHit = q.origin + q.direction * t;
+    glm::vec3 lNormal = glm::vec3(0.0f,0.0f,1.0f);
+
+    if(max(abs(lHit.x), abs(lHit.y)) > 0.5) // TODO: max(lHit.x*lHit.x, lHit.y*lHit.y) > 0.25
+        return -1;
+
+    intersectionPoint = multiplyMV(plane.transform, glm::vec4(lHit, 1.0f));
+    normal = glm::normalize(multiplyMV(plane.invTranspose, glm::vec4(lNormal, 0.0f)));
+
+    return t;
+}
+
 __host__ __device__ float sphereIntersectionTest(
     Geom sphere,
     Ray r,
@@ -110,4 +129,43 @@ __host__ __device__ float sphereIntersectionTest(
     }
 
     return glm::length(r.origin - intersectionPoint);
+}
+
+__host__ __device__ void sceneIntersectionTest(Geom* geoms, Ray r, int geoms_size, int& hit_geom_index, float& t_min, glm::vec3& intersect_point, glm::vec3& normal) {
+    float t;
+    t_min = FLT_MAX;
+    bool outside = true;
+
+    glm::vec3 tmp_intersect;
+    glm::vec3 tmp_normal;
+
+    // naive parse through global geoms
+
+    for (int i = 0; i < geoms_size; i++)
+    {
+        Geom& geom = geoms[i];
+
+        if (geom.type == CUBE)
+        {
+            t = boxIntersectionTest(geom, r, tmp_intersect, tmp_normal, outside);
+        }
+        else if (geom.type == SPHERE)
+        {
+            t = sphereIntersectionTest(geom, r, tmp_intersect, tmp_normal, outside);
+        } else if(geom.type == PLANE) 
+        {
+            t = planeIntersectionTest(geom, r, tmp_intersect, tmp_normal);
+        }
+        // TODO: add more intersection tests here... triangle? metaball? CSG?
+
+        // Compute the minimum t from the intersection tests to determine what
+        // scene geometry object was hit first.
+        if (t > 0.0f && t_min > t)
+        {
+            t_min = t;
+            hit_geom_index = i;
+            intersect_point = tmp_intersect;
+            normal = tmp_normal;
+        }
+    }
 }

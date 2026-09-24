@@ -293,8 +293,11 @@ void RenderImGui()
     
     ImGui::Checkbox("Sort Rays by Material", &imguiData->SortRaysByMaterial);
     if(ImGui::CollapsingHeader("Camera")) {
-        ImGui::SliderFloat("Focal Distance", &imguiData->FocalDistance, 1.0f, 25.0f, "%.1f");
-        ImGui::SliderFloat("FStop", &imguiData->ApertureFNumber, 1.0f, 100.0f, "%.1f");
+        ImGui::Checkbox("Depth of Field", &imguiData->UseDepthOfField);
+        if (imguiData->UseDepthOfField) {
+            ImGui::SliderFloat("Focal Distance", &imguiData->FocalDistance, 1.0f, 25.0f, "%.1f");
+            ImGui::SliderFloat("FStop", &imguiData->ApertureFNumber, 1.0f, 100.0f, "%.1f");
+        }
     }
 
     ImGui::Separator();

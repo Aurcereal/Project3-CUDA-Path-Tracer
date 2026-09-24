@@ -72,9 +72,12 @@ void Scene::loadFromJSON(const std::string& jsonName)
         {
             newGeom.type = CUBE;
         }
-        else
+        else if(type == "sphere")
         {
             newGeom.type = SPHERE;
+        } 
+        else {
+            newGeom.type = PLANE;
         }
         newGeom.materialid = MatNameToID[p["MATERIAL"]];
         const auto& trans = p["TRANS"];
@@ -87,6 +90,19 @@ void Scene::loadFromJSON(const std::string& jsonName)
             newGeom.translation, newGeom.rotation, newGeom.scale);
         newGeom.inverseTransform = glm::inverse(newGeom.transform);
         newGeom.invTranspose = glm::inverseTranspose(newGeom.transform);
+
+        if(materials[newGeom.materialid].emittance > 0.0f) {
+            // Should be put in light array
+            Light l;
+            assert(newGeom.type == PLANE);
+            l.geomid = geoms.size();
+            l.localPdf = 1.0f / (newGeom.scale.x * newGeom.scale.y);
+            lights.push_back(l);
+
+            newGeom.lightid = lights.size()-1;
+        } else {
+            newGeom.lightid = -1;
+        }
 
         geoms.push_back(newGeom);
     }

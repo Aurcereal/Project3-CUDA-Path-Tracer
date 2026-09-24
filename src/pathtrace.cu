@@ -12,6 +12,7 @@
 #include "utilities.h"
 #include "intersections.h"
 #include "interactions.h"
+#include "sampling.h"
 
 #include "thrust-usage.h"
 
@@ -77,6 +78,7 @@ static Scene* hst_scene = NULL;
 static GuiDataContainer* guiData = NULL;
 static glm::vec3* dev_image = NULL;
 static Geom* dev_geoms = NULL;
+static Light* dev_lights = NULL;
 static Material* dev_materials = NULL;
 static PathSegment* dev_paths = NULL;
 static ShadeableIntersection* dev_intersections = NULL;
@@ -102,6 +104,9 @@ void pathtraceInit(Scene* scene)
 
     cudaMalloc(&dev_geoms, scene->geoms.size() * sizeof(Geom));
     cudaMemcpy(dev_geoms, scene->geoms.data(), scene->geoms.size() * sizeof(Geom), cudaMemcpyHostToDevice);
+
+    cudaMalloc(&dev_lights, scene->lights.size() * sizeof(Light));
+    cudaMemcpy(dev_lights, scene->lights.data(), scene->lights.size() * sizeof(Light), cudaMemcpyHostToDevice);
 
     cudaMalloc(&dev_materials, scene->materials.size() * sizeof(Material));
     cudaMemcpy(dev_materials, scene->materials.data(), scene->materials.size() * sizeof(Material), cudaMemcpyHostToDevice);
@@ -169,6 +174,8 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 
         segment.pixelIndex = index;
         segment.remainingBounces = traceDepth;
+
+        segment.lastBsdfPdf = -1.0f;
     }
 }
 
@@ -190,42 +197,49 @@ __global__ void computeIntersections(
     {
         PathSegment pathSegment = pathSegments[path_index];
 
-        float t;
-        glm::vec3 intersect_point;
-        glm::vec3 normal;
-        float t_min = FLT_MAX;
+        // float t;
+        // glm::vec3 intersect_point;
+        // glm::vec3 normal;
+        // float t_min = FLT_MAX;
+        // int hit_geom_index = -1;
+        // bool outside = true;
+
+        // glm::vec3 tmp_intersect;
+        // glm::vec3 tmp_normal;
+
+        // // naive parse through global geoms
+
+        // for (int i = 0; i < geoms_size; i++)
+        // {
+        //     Geom& geom = geoms[i];
+
+        //     if (geom.type == CUBE)
+        //     {
+        //         t = boxIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
+        //     }
+        //     else if (geom.type == SPHERE)
+        //     {
+        //         t = sphereIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
+        //     } else if(geom.type == PLANE) 
+        //     {
+        //         t = planeIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal);
+        //     }
+        //     // TODO: add more intersection tests here... triangle? metaball? CSG?
+
+        //     // Compute the minimum t from the intersection tests to determine what
+        //     // scene geometry object was hit first.
+        //     if (t > 0.0f && t_min > t)
+        //     {
+        //         t_min = t;
+        //         hit_geom_index = i;
+        //         intersect_point = tmp_intersect;
+        //         normal = tmp_normal;
+        //     }
+        // }
         int hit_geom_index = -1;
-        bool outside = true;
-
-        glm::vec3 tmp_intersect;
-        glm::vec3 tmp_normal;
-
-        // naive parse through global geoms
-
-        for (int i = 0; i < geoms_size; i++)
-        {
-            Geom& geom = geoms[i];
-
-            if (geom.type == CUBE)
-            {
-                t = boxIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
-            }
-            else if (geom.type == SPHERE)
-            {
-                t = sphereIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
-            }
-            // TODO: add more intersection tests here... triangle? metaball? CSG?
-
-            // Compute the minimum t from the intersection tests to determine what
-            // scene geometry object was hit first.
-            if (t > 0.0f && t_min > t)
-            {
-                t_min = t;
-                hit_geom_index = i;
-                intersect_point = tmp_intersect;
-                normal = tmp_normal;
-            }
-        }
+        float t_min = -1.0f;
+        glm::vec3 intersect_point = glm::vec3(0.0f); glm::vec3 normal = glm::vec3(0.0f);
+        sceneIntersectionTest(geoms, pathSegment.ray, geoms_size, hit_geom_index, t_min, intersect_point, normal);
 
         intersections[path_index].pathIdx = path_index;
         if (hit_geom_index == -1)
@@ -237,6 +251,7 @@ __global__ void computeIntersections(
             // The ray hits something
             intersections[path_index].t = t_min;
             intersections[path_index].materialId = geoms[hit_geom_index].materialid;
+            intersections[path_index].geomId = hit_geom_index;
             intersections[path_index].surfaceNormal = normal;
         }
     }
@@ -268,6 +283,7 @@ __global__ void shadeFakeMaterial(
     }
 }
 
+#define MIS 1
 
 // LOOK: "fake" shader demonstrating what you might do with the info in
 // a ShadeableIntersection, as well as how to use thrust's random number
@@ -284,6 +300,10 @@ __global__ void shadeMaterial(
     ShadeableIntersection* shadeableIntersections,
     PathSegment* pathSegments,
     Material* materials,
+    Geom* geo,
+    int num_geoms,
+    Light* lights,
+    int num_lights,
     glm::vec3* image)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -304,7 +324,22 @@ __global__ void shadeMaterial(
 
             // If the material indicates that the object was a light, "light" the ray
             if (material.emittance > 0.0f) {
-                p.color *= (materialColor * material.emittance);
+                const Geom& lGeo = geo[intersection.geomId];
+                const Light& l = lights[lGeo.lightid];
+                p.color *= (materialColor * material.emittance)
+#if MIS
+                    * (p.lastBsdfPdf < 0.0f ? 1.0f : powerHeuristic(p.lastBsdfPdf,
+                        pdfLight(
+                            p.ray.origin,
+                            p.ray.origin + p.ray.direction * intersection.t,
+                            normalize(glm::vec3(lGeo.invTranspose * glm::vec4(0.0f, 0.0f, 1.0f, 0.0f))),
+                            num_lights,
+                            l
+                        )));
+#else
+                    * 1.0f;
+#endif
+
                 p.remainingBounces = 0;
                 image[p.pixelIndex] += p.color;
 
@@ -315,20 +350,28 @@ __global__ void shadeMaterial(
                 Ray& ray = currPath.ray;
                 float pdf = 100.0f;
 
-                // Bounce
-                scatterRay(currPath, ray.origin + intersection.t * ray.direction, intersection.surfaceNormal, material, rng, pdf);
+                //
+#if MIS
+                glm::vec3 directLi = glm::vec3(0.0f);
+                sampleRandomLight(geo, num_geoms, lights, num_lights, materials, currPath.ray.origin + currPath.ray.direction * intersection.t, intersection.surfaceNormal, materials[intersection.materialId], rng, directLi);
+                image[p.pixelIndex] += p.color * directLi;
+#endif
+
+                // Bounce & Update Throughput
+                sampleBSDF(currPath, ray.origin + intersection.t * ray.direction, intersection.surfaceNormal, material, rng, pdf);
+                p.lastBsdfPdf = pdf;
                 p.remainingBounces--;
 
                 // Shade
-                if(material.hasReflective) {
-                    glm::vec3 bsdf = materialColor;
-                    currPath.color *= bsdf / pdf;
-                } else {
-                    glm::vec3 bsdf = materialColor / PI;
-                    float cosTheta = abs(glm::dot(ray.direction, intersection.surfaceNormal));
-                    float lambert = material.hasReflective ? 1.0 : cosTheta;
-                    currPath.color *= bsdf * lambert / pdf;
-                }
+                // if(material.hasReflective) {
+                //     glm::vec3 bsdf = materialColor;
+                //     currPath.color *= bsdf / pdf;
+                // } else {
+                //     glm::vec3 bsdf = materialColor / PI;
+                //     float cosTheta = abs(glm::dot(ray.direction, intersection.surfaceNormal));
+                //     float lambert = material.hasReflective ? 1.0 : cosTheta;
+                //     currPath.color *= bsdf * lambert / pdf;
+                // }
 
             }
             // If there was no intersection, color the ray black.
@@ -409,7 +452,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 
     // TODO: perform one iteration of path tracing
 
-    generateRayFromCamera<<<blocksPerGrid2d, blockSize2d>>>(cam, iter, traceDepth, dev_paths, guiData->FocalDistance, 0.5f * guiData->FocalDistance/guiData->ApertureFNumber);
+    generateRayFromCamera<<<blocksPerGrid2d, blockSize2d>>>(cam, iter, traceDepth, dev_paths, guiData->FocalDistance, guiData->UseDepthOfField ? 0.5f * guiData->FocalDistance/guiData->ApertureFNumber : 0.0f);
     checkCUDAError("generate camera ray");
 
     int depth = 0;
@@ -470,6 +513,10 @@ void pathtrace(uchar4* pbo, int frame, int iter)
                 dev_intersections,
                 dev_paths,
                 dev_materials,
+                dev_geoms,
+                hst_scene->geoms.size(),
+                dev_lights,
+                hst_scene->lights.size(),
                 dev_image
                 );
 

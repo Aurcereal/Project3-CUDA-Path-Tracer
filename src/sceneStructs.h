@@ -12,7 +12,8 @@
 enum GeomType
 {
     SPHERE,
-    CUBE
+    CUBE,
+    PLANE
 };
 
 struct Ray
@@ -31,6 +32,13 @@ struct Geom
     glm::mat4 transform;
     glm::mat4 inverseTransform;
     glm::mat4 invTranspose;
+    int lightid;
+};
+
+struct Light
+{
+    int geomid;
+    float localPdf; // Assuming constant
 };
 
 struct Material
@@ -74,6 +82,7 @@ struct PathSegment
     glm::vec3 color;
     int pixelIndex;
     int remainingBounces;
+    float lastBsdfPdf;
 };
 
 // Use with a corresponding PathSegment to do:
@@ -84,5 +93,6 @@ struct ShadeableIntersection
   float t;
   glm::vec3 surfaceNormal;
   int materialId;
+  int geomId;
   int pathIdx;
 };

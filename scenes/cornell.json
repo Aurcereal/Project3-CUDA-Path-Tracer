@@ -43,11 +43,11 @@
     "Objects":
     [
         {
-            "TYPE":"cube",
+            "TYPE":"plane",
             "MATERIAL":"light",
-            "TRANS":[0.0,10.0,0.0],
-            "ROTAT":[0.0,0.0,0.0],
-            "SCALE":[3.0,0.3,3.0]
+            "TRANS":[0.0,9.9,0.0],
+            "ROTAT":[90.0,0.0,0.0],
+            "SCALE":[3.0,3.0,1.0]
         },
         {
             "TYPE":"cube",

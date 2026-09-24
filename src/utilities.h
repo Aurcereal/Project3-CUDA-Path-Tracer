@@ -15,6 +15,7 @@
 #define SQRT_OF_ONE_THIRD 0.5773502691896257645091487805019574556476f
 #define EPSILON           0.00001f
 #define IPI               0.31830988618f
+#define INTERSECT_EPS 0.005f
 
 class GuiDataContainer
 {
@@ -26,6 +27,7 @@ public:
     // Settings
     int MaxDepth = 5;
     int RenderType = 1;
+    bool UseDepthOfField = false;
     float FocalDistance = 11.5f;
     float ApertureFNumber = 10.0f;
 };
