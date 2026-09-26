@@ -3,6 +3,7 @@
 #include "utilities.h"
 
 #include <glm/gtc/matrix_inverse.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
 #include "json.hpp"
 
@@ -60,6 +61,7 @@ void Scene::loadFromJSON(const std::string& jsonName)
             newMaterial.color = glm::vec3(col[0], col[1], col[2]);
             newMaterial.hasReflective = 1.0f;
         }
+        newMaterial.isVolume = false;
         MatNameToID[name] = materials.size();
         materials.emplace_back(newMaterial);
     }
@@ -106,6 +108,21 @@ void Scene::loadFromJSON(const std::string& jsonName)
 
         geoms.push_back(newGeom);
     }
+
+    {
+        Material volMaterial;
+        volMaterial.color = glm::vec3(1.0f);// glm::vec3(0.999f);
+        volMaterial.isVolume = true;
+        volMaterial.g = 0.825f;
+        materials.push_back(volMaterial);
+
+        Volume v;
+        v.extinctionMax = 1.0f;
+        v.materialid = materials.size()-1;
+        v.invTransform = glm::inverse(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(14.0f)));
+        volumes.push_back(v);
+    }
+    
     const auto& cameraData = data["Camera"];
     Camera& camera = state.camera;
     RenderState& state = this->state;

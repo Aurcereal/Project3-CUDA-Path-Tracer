@@ -19,6 +19,8 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(
 __host__ __device__ glm::vec2 calculateRandomPositionOnDisk(thrust::default_random_engine &rng);
 __host__ __device__ glm::vec2 calculateRandomPositionOnSquare(thrust::default_random_engine &rng);
 
+
+
 __host__ __device__ float powerHeuristic(float myPdf, float otherPdf);
 
 __host__ __device__ float pdfBSDF(glm::vec3 wi, glm::vec3 normal, const Material& m, glm::vec3& fLambert);
@@ -50,8 +52,8 @@ __host__ __device__ float pdfLight(glm::vec3 intersect, glm::vec3 lightSamplePos
  * You may need to change the parameter list for your purposes!
  */
 __host__ __device__ void sampleBSDF(
-    PathSegment& pathSegment,
-    glm::vec3 intersect,
+    glm::vec3 wo,
     glm::vec3 normal,
     const Material& m,
-    thrust::default_random_engine& rng, float& outPdf);
+    thrust::default_random_engine& rng,
+    float& outPdf, glm::vec3& fLambert, glm::vec3& wi);

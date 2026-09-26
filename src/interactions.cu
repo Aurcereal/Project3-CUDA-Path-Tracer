@@ -101,27 +101,24 @@ __host__ __device__ float pdfLight(glm::vec3 intersect, glm::vec3 lightSamplePos
 }
 
 __host__ __device__ void sampleBSDF(
-    PathSegment & pathSegment,
-    glm::vec3 intersect,
+    glm::vec3 wo,
     glm::vec3 normal,
-    const Material &m,
-    thrust::default_random_engine &rng, float& outPdf)
+    const Material& m,
+    thrust::default_random_engine& rng,
+    float& outPdf, glm::vec3& fLambert, glm::vec3& wi)
 {
-
-    pathSegment.ray.origin = intersect + normal * INTERSECT_EPS;
     if(m.hasReflective) {
         // Just use perfect reflection
-        pathSegment.ray.direction -= normal * 2.0f * glm::dot(pathSegment.ray.direction, normal);
+        wi = -wo - normal * 2.0f * glm::dot(-wo, normal);
         outPdf = 1.0f;
 
-        glm::vec3 bsdf = m.color;
-        pathSegment.color *= bsdf;
+        fLambert = m.color;
     } else {
-        pathSegment.ray.direction = calculateRandomDirectionInHemisphere(normal, rng);
-        outPdf = dot(pathSegment.ray.direction, normal)*IPI;
+        wi = calculateRandomDirectionInHemisphere(normal, rng);
+        outPdf = dot(wi, normal)*IPI;
 
         glm::vec3 bsdf = m.color / PI;
-        float cosTheta = abs(glm::dot(pathSegment.ray.direction, normal));
-        pathSegment.color *= bsdf * cosTheta / max(outPdf, 1e-5f);
+        float cosTheta = abs(glm::dot(wi, normal));
+        fLambert = bsdf * cosTheta;
     }
 }

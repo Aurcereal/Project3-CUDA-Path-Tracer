@@ -1,4 +1,5 @@
 #include "intersections.h"
+#include "volume.h"
 
 __host__ __device__ float boxIntersectionTest(
     Geom box,
@@ -54,6 +55,47 @@ __host__ __device__ float boxIntersectionTest(
     }
 
     return -1;
+}
+
+__host__ __device__ glm::vec2 bbxIntersectionTest(Ray r, glm::mat4 inverseTransform) {
+    Ray q;
+    q.origin    = multiplyMV(inverseTransform, glm::vec4(r.origin   , 1.0f));
+    q.direction = multiplyMV(inverseTransform, glm::vec4(r.direction, 0.0f));
+
+    float tmin = -1e38f;
+    float tmax = 1e38f;
+    glm::vec3 tmin_n;
+    glm::vec3 tmax_n;
+    for (int xyz = 0; xyz < 3; ++xyz)
+    {
+        float qdxyz = q.direction[xyz];
+        /*if (glm::abs(qdxyz) > 0.00001f)*/
+        {
+            float t1 = (-0.5f - q.origin[xyz]) / qdxyz;
+            float t2 = (+0.5f - q.origin[xyz]) / qdxyz;
+            float ta = glm::min(t1, t2);
+            float tb = glm::max(t1, t2);
+            glm::vec3 n;
+            n[xyz] = t2 < t1 ? +1 : -1;
+            if (ta > 0 && ta > tmin)
+            {
+                tmin = ta;
+                tmin_n = n;
+            }
+            if (tb < tmax)
+            {
+                tmax = tb;
+                tmax_n = n;
+            }
+        }
+    }
+
+    if (tmax >= tmin && tmax > 0)
+    {
+        return glm::vec2(tmin, tmax);
+    }
+
+    return glm::vec2(-1.0f);
 }
 
 __host__ __device__ float planeIntersectionTest(Geom plane, Ray r, glm::vec3 &intersectionPoint, glm::vec3 &normal) {
@@ -131,10 +173,11 @@ __host__ __device__ float sphereIntersectionTest(
     return glm::length(r.origin - intersectionPoint);
 }
 
-__host__ __device__ void sceneIntersectionTest(Geom* geoms, Ray r, int geoms_size, int& hit_geom_index, float& t_min, glm::vec3& intersect_point, glm::vec3& normal) {
+__host__ __device__ void sceneIntersectionTest(Geom* geoms, Volume* volumes, Ray r, int geoms_size, thrust::default_random_engine& rng, int& hit_geom_index, float& t_min, glm::vec3& intersect_point, glm::vec3& normal, bool& hitVolume) {
     float t;
     t_min = FLT_MAX;
     bool outside = true;
+    hitVolume = false;
 
     glm::vec3 tmp_intersect;
     glm::vec3 tmp_normal;
@@ -168,4 +211,24 @@ __host__ __device__ void sceneIntersectionTest(Geom* geoms, Ray r, int geoms_siz
             normal = tmp_normal;
         }
     }
+
+    for(int i=0; i<1; ++i) {
+        const Volume& v = volumes[i];
+
+        glm::vec2 bbxTs = bbxIntersectionTest(r, v.invTransform);
+        if(bbxTs.x < bbxTs.y) {
+            float tStart = max(0.0f, bbxTs.x);
+            float tEnd = min(t_min, bbxTs.y);
+
+            float t = volumeIntersectionTest(r, v, rng, tStart, tEnd);
+            if(t > 0.0) {
+                // Hit the volume
+                hitVolume = true;
+                t_min = t;
+                hit_geom_index = i;
+            }
+        }
+    }
+
+    
 }

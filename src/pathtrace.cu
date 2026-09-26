@@ -13,8 +13,16 @@
 #include "intersections.h"
 #include "interactions.h"
 #include "sampling.h"
+#include "volume.h"
 
 #include "thrust-usage.h"
+
+// struct VolumeData {
+//     // TODO: package data together and then pass it into cuda
+//     Volume* volumes;
+//     int num_volumes;
+//     // etc
+// };
 
 #define ERRORCHECK 1
 
@@ -78,6 +86,7 @@ static Scene* hst_scene = NULL;
 static GuiDataContainer* guiData = NULL;
 static glm::vec3* dev_image = NULL;
 static Geom* dev_geoms = NULL;
+static Volume* dev_volumes = NULL;
 static Light* dev_lights = NULL;
 static Material* dev_materials = NULL;
 static PathSegment* dev_paths = NULL;
@@ -107,6 +116,9 @@ void pathtraceInit(Scene* scene)
 
     cudaMalloc(&dev_lights, scene->lights.size() * sizeof(Light));
     cudaMemcpy(dev_lights, scene->lights.data(), scene->lights.size() * sizeof(Light), cudaMemcpyHostToDevice);
+
+    cudaMalloc(&dev_volumes, scene->volumes.size() * sizeof(Volume));
+    cudaMemcpy(dev_volumes, scene->volumes.data(), scene->volumes.size() * sizeof(Volume), cudaMemcpyHostToDevice);
 
     cudaMalloc(&dev_materials, scene->materials.size() * sizeof(Material));
     cudaMemcpy(dev_materials, scene->materials.data(), scene->materials.size() * sizeof(Material), cudaMemcpyHostToDevice);
@@ -185,10 +197,12 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 // Feel free to modify the code below.
 __global__ void computeIntersections(
     int depth,
+    int iter,
     int num_paths,
     PathSegment* pathSegments,
     Geom* geoms,
     int geoms_size,
+    Volume* volumes,
     ShadeableIntersection* intersections)
 {
     int path_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -196,58 +210,24 @@ __global__ void computeIntersections(
     if (path_index < num_paths)
     {
         PathSegment pathSegment = pathSegments[path_index];
+        thrust::default_random_engine rng = makeSeededRandomEngine(iter, path_index, 0);
 
-        // float t;
-        // glm::vec3 intersect_point;
-        // glm::vec3 normal;
-        // float t_min = FLT_MAX;
-        // int hit_geom_index = -1;
-        // bool outside = true;
-
-        // glm::vec3 tmp_intersect;
-        // glm::vec3 tmp_normal;
-
-        // // naive parse through global geoms
-
-        // for (int i = 0; i < geoms_size; i++)
-        // {
-        //     Geom& geom = geoms[i];
-
-        //     if (geom.type == CUBE)
-        //     {
-        //         t = boxIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
-        //     }
-        //     else if (geom.type == SPHERE)
-        //     {
-        //         t = sphereIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
-        //     } else if(geom.type == PLANE) 
-        //     {
-        //         t = planeIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal);
-        //     }
-        //     // TODO: add more intersection tests here... triangle? metaball? CSG?
-
-        //     // Compute the minimum t from the intersection tests to determine what
-        //     // scene geometry object was hit first.
-        //     if (t > 0.0f && t_min > t)
-        //     {
-        //         t_min = t;
-        //         hit_geom_index = i;
-        //         intersect_point = tmp_intersect;
-        //         normal = tmp_normal;
-        //     }
-        // }
         int hit_geom_index = -1;
         float t_min = -1.0f;
         glm::vec3 intersect_point = glm::vec3(0.0f); glm::vec3 normal = glm::vec3(0.0f);
-        sceneIntersectionTest(geoms, pathSegment.ray, geoms_size, hit_geom_index, t_min, intersect_point, normal);
+        bool hitVolume = false;
+        sceneIntersectionTest(geoms, volumes, pathSegment.ray, geoms_size, rng, hit_geom_index, t_min, intersect_point, normal, hitVolume);
 
         intersections[path_index].pathIdx = path_index;
         if (hit_geom_index == -1)
         {
             intersections[path_index].t = -1.0f;
         }
-        else
-        {
+        else if(hitVolume) {
+            intersections[path_index].t = t_min;
+            intersections[path_index].materialId = volumes[hit_geom_index].materialid;
+            intersections[path_index].geomId = hit_geom_index;
+        } else {
             // The ray hits something
             intersections[path_index].t = t_min;
             intersections[path_index].materialId = geoms[hit_geom_index].materialid;
@@ -302,6 +282,7 @@ __global__ void shadeMaterial(
     Material* materials,
     Geom* geo,
     int num_geoms,
+    Volume* volumes,
     Light* lights,
     int num_lights,
     glm::vec3* image)
@@ -329,7 +310,7 @@ __global__ void shadeMaterial(
                 p.color *= (materialColor * material.emittance)
 #if MIS
                     * (p.lastBsdfPdf < 0.0f ? 1.0f : powerHeuristic(p.lastBsdfPdf,
-                        pdfLight(
+                        pdfLight( // TODO: make this pdfLightPlane, and then have a pdfLightVolume too when adding direct light volume sampling (kinda far out)
                             p.ray.origin,
                             p.ray.origin + p.ray.direction * intersection.t,
                             normalize(glm::vec3(lGeo.invTranspose * glm::vec4(0.0f, 0.0f, 1.0f, 0.0f))),
@@ -346,32 +327,40 @@ __global__ void shadeMaterial(
             }
             else {
                 // Setup
-                PathSegment& currPath = p;
-                Ray& ray = currPath.ray;
+                Ray& ray = p.ray;
                 float pdf = 100.0f;
+                glm::vec3 wi = glm::vec3(0.0f);
+                glm::vec3 colorMult = glm::vec3(0.0f);
+                glm::vec3 hitPoint = ray.origin + intersection.t * ray.direction;
 
                 //
 #if MIS
-                glm::vec3 directLi = glm::vec3(0.0f);
-                sampleRandomLight(geo, num_geoms, lights, num_lights, materials, currPath.ray.origin + currPath.ray.direction * intersection.t, intersection.surfaceNormal, materials[intersection.materialId], rng, directLi);
-                image[p.pixelIndex] += p.color * directLi;
+                glm::vec3 directContribution = glm::vec3(0.0f);
+                sampleRandomLight(geo, num_geoms, volumes, lights, num_lights, materials, p.ray.origin + p.ray.direction * intersection.t, intersection.surfaceNormal, -p.ray.direction, materials[intersection.materialId], rng, directContribution);
+                image[p.pixelIndex] += p.color * directContribution;
 #endif
 
-                // Bounce & Update Throughput
-                sampleBSDF(currPath, ray.origin + intersection.t * ray.direction, intersection.surfaceNormal, material, rng, pdf);
+                if(material.isVolume) {
+                    glm::vec3 wi = sampleHenyeyGreenstein(-p.ray.direction, material.g, rng, pdf);
+
+                    p.ray.origin = hitPoint;
+                    p.ray.direction = wi;
+
+                    colorMult = material.color;
+                } else {
+                    // Bounce & Update Throughput
+                    glm::vec3 fLambert = glm::vec3(0.0f);
+                    sampleBSDF(-ray.direction, intersection.surfaceNormal, material, rng, pdf, fLambert, wi);
+
+                    p.ray.origin = hitPoint + intersection.surfaceNormal * BOUNCE_EPS;
+                    p.ray.direction = wi;
+
+                    colorMult = fLambert / max(1e-5f, pdf);
+                }
+
+                p.color *= colorMult;
                 p.lastBsdfPdf = pdf;
                 p.remainingBounces--;
-
-                // Shade
-                // if(material.hasReflective) {
-                //     glm::vec3 bsdf = materialColor;
-                //     currPath.color *= bsdf / pdf;
-                // } else {
-                //     glm::vec3 bsdf = materialColor / PI;
-                //     float cosTheta = abs(glm::dot(ray.direction, intersection.surfaceNormal));
-                //     float lambert = material.hasReflective ? 1.0 : cosTheta;
-                //     currPath.color *= bsdf * lambert / pdf;
-                // }
 
             }
             // If there was no intersection, color the ray black.
@@ -471,10 +460,12 @@ void pathtrace(uchar4* pbo, int frame, int iter)
         dim3 numblocksPathSegmentTracing = (num_paths + blockSize1d - 1) / blockSize1d;
         computeIntersections<<<numblocksPathSegmentTracing, blockSize1d>>> (
             depth,
+            iter,
             num_paths,
             dev_paths,
             dev_geoms,
             hst_scene->geoms.size(),
+            dev_volumes,
             dev_intersections
         );
         checkCUDAError("trace one bounce");
@@ -515,6 +506,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
                 dev_materials,
                 dev_geoms,
                 hst_scene->geoms.size(),
+                dev_volumes,
                 dev_lights,
                 hst_scene->lights.size(),
                 dev_image

@@ -15,7 +15,9 @@
 #define SQRT_OF_ONE_THIRD 0.5773502691896257645091487805019574556476f
 #define EPSILON           0.00001f
 #define IPI               0.31830988618f
-#define INTERSECT_EPS 0.005f
+#define BOUNCE_EPS 0.005f
+
+#define SQR(x) ((x)*(x))
 
 class GuiDataContainer
 {

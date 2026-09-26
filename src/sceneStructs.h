@@ -41,6 +41,14 @@ struct Light
     float localPdf; // Assuming constant
 };
 
+struct Volume {
+    glm::mat4 invTransform;
+    float albedo;
+    float extinctionMax; // For the entire volume, or should it be calculated along ray first?
+    float g;
+    int materialid;
+};
+
 struct Material
 {
     glm::vec3 color;
@@ -53,6 +61,9 @@ struct Material
     float hasRefractive;
     float indexOfRefraction;
     float emittance;
+
+    float isVolume;
+    float g;
 };
 
 struct Camera

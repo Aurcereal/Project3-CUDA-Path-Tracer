@@ -5,6 +5,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/intersect.hpp>
 
+#include <thrust/random.h>
+
 
 /**
  * Handy-dandy hash function that provides seeds for random number generation.
@@ -76,4 +78,4 @@ __host__ __device__ float sphereIntersectionTest(
 __host__ __device__ float planeIntersectionTest(Geom plane, Ray r, glm::vec3 &intersectionPoint, glm::vec3 &normal);
 
 //
-__host__ __device__ void sceneIntersectionTest(Geom* geoms, Ray r, int geoms_size, int& hit_geom_index, float& t_min, glm::vec3& intersect_point, glm::vec3& normal);
+__host__ __device__ void sceneIntersectionTest(Geom* geoms, Volume* volumes, Ray r, int geoms_size, thrust::default_random_engine& rng, int& hit_geom_index, float& t_min, glm::vec3& intersect_point, glm::vec3& normal, bool& hitVolume);
