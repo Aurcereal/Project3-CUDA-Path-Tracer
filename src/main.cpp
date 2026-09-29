@@ -289,7 +289,7 @@ void RenderImGui()
     char* renderTypeOptions[2] = {"Basic", "Pathtraced"};
     ImGui::Combo("Render Type", &imguiData->RenderType, renderTypeOptions, 2);
 
-    ImGui::SliderInt("Max Ray Depth", &imguiData->MaxDepth, 1, 10);
+    ImGui::SliderInt("Max Ray Depth", &imguiData->MaxDepth, 1, 50);
     
     ImGui::Checkbox("Sort Rays by Material", &imguiData->SortRaysByMaterial);
     if(ImGui::CollapsingHeader("Camera")) {

@@ -2,12 +2,16 @@
 #include "utilities.h"
 #include "cuda-utilities.h"
 
-__host__ __device__ float henyeyGreenstein(float cosTheta, float g) {
+__host__ __device__ float henyeyGreensteinSingle(float cosTheta, float g) {
     float denom = 1.0f + g*g + 2.0f * g * cosTheta;
     return 0.25 * IPI * (1.0f - g*g) / (denom * max(1e-5, sqrt(denom)));
 }
 
-__host__ __device__ glm::vec3 sampleHenyeyGreenstein(glm::vec3 wo, float g, thrust::default_random_engine& rng, float& outPdf) {
+__host__ __device__ float henyeyGreensteinDouble(float cosTheta, float g1, float g2, float blend) {
+    return henyeyGreensteinSingle(cosTheta, g1) * (1.0f - blend) + henyeyGreensteinSingle(cosTheta, g2) * blend;
+}
+
+__host__ __device__ glm::vec3 sampleHenyeyGreensteinSingle(glm::vec3 wo, float g, thrust::default_random_engine& rng, float& outPdf) {
       thrust::uniform_real_distribution u01(0.0f, 1.0f);
       glm::vec2 xi = glm::vec2(u01(rng), u01(rng));
 
@@ -23,14 +27,27 @@ __host__ __device__ glm::vec3 sampleHenyeyGreenstein(glm::vec3 wo, float g, thru
        glm::mat3 wFrame = FrameFromZ(wo);
        glm::vec3 wi = wFrame * (SphericalDirection(cosTheta, sinTheta, phi));
 
-       outPdf = henyeyGreenstein(cosTheta, g);
+       outPdf = henyeyGreensteinSingle(cosTheta, g);
        return wi;
+}
+
+__host__ __device__ glm::vec3 sampleHenyeyGreensteinDouble(glm::vec3 wo, float g1, float g2, float blend, thrust::default_random_engine& rng, float& outPdf) {
+    thrust::uniform_real_distribution u01(0.0f, 1.0f);
+
+    bool gChoice = u01(rng) <= blend;
+    float g = gChoice ? g2 : g1;
+    float pdf = 100.0f;
+    glm::vec3 wi = sampleHenyeyGreensteinSingle(wo, g, rng, pdf);
+
+    outPdf = pdf * (gChoice ? blend : 1.0f - blend);
+
+    return wi;
 }
 
 
 __host__ __device__ float sampleVolume(const Volume& volume, glm::vec3 p) {
     if (length(p) > 3.0f) return 0.0f;
-    return glm::smoothstep(0.75f, 1.0f, glm::abs(glm::dot(cos(2.0f * p), sin(4.0f * glm::vec3(p.z, p.y, p.x))))) * 1.0f;// / max(0.5f, dot(p, p));
+    return glm::smoothstep(0.75f, 1.0f, glm::abs(glm::dot(cos(2.0f * p), sin(4.0f * glm::vec3(p.z, p.y, p.x))))) * 2.0f;// / max(0.5f, dot(p, p));
     // // Weird way to do this, makes more sense physically to do absorption (a), scattering (s), then extinction (e) = a + s, albedo = s/e, absorption = a/e
     // float extinction = 10.0f / max(0.5f, dot(p, p));
     
@@ -59,15 +76,10 @@ __host__ __device__ float volumeIntersectionTest(Ray ray, const Volume& volume, 
 
         if(u01(rng) <= extinction / volume.extinctionMax) {
             return t;
-            // Hit
-
-            // store info in intersection struct (pass it in as out param or smth)
-            // terminate if absorbed (maybe there's no point in doing this for me it doesn't effect actual render ithink actually mabe it does)
-            // sample phase function bounce and multiply by albedo and phase function and then divide by pdf (which is also phase function so it cancels and WE ONLY MULT BY ALBEDO (only works for single wavelength))
-            // do MIS sample random ligh tsame as before but use the volume pdfs in MIS
-            // DONT FORGET TO SET LASTBSDFPDF to henyey pdf so we do still haveto sample it ig
         }
-        if (iter++ > 50)
+
+        // Iter cap
+        if (iter++ > 500)
             return t;
     }
 

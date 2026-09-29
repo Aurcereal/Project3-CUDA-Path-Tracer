@@ -113,11 +113,13 @@ void Scene::loadFromJSON(const std::string& jsonName)
         Material volMaterial;
         volMaterial.color = glm::vec3(1.0f);// glm::vec3(0.999f);
         volMaterial.isVolume = true;
-        volMaterial.g = 0.825f;
+        volMaterial.g1 = 0.9f;
+        volMaterial.g2 = -0.4f;
+        volMaterial.gBlend = 0.3f;
         materials.push_back(volMaterial);
 
         Volume v;
-        v.extinctionMax = 1.0f;
+        v.extinctionMax = 2.0f;
         v.materialid = materials.size()-1;
         v.invTransform = glm::inverse(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(14.0f)));
         volumes.push_back(v);

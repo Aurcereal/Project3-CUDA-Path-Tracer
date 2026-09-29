@@ -63,7 +63,9 @@ struct Material
     float emittance;
 
     float isVolume;
-    float g;
+    float g1;
+    float g2;
+    float gBlend;
 };
 
 struct Camera

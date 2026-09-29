@@ -341,7 +341,7 @@ __global__ void shadeMaterial(
 #endif
 
                 if(material.isVolume) {
-                    glm::vec3 wi = sampleHenyeyGreenstein(-p.ray.direction, material.g, rng, pdf);
+                    glm::vec3 wi = sampleHenyeyGreensteinDouble(-p.ray.direction, material.g1, material.g2, material.gBlend, rng, pdf);
 
                     p.ray.origin = hitPoint;
                     p.ray.direction = wi;
@@ -441,7 +441,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 
     // TODO: perform one iteration of path tracing
 
-    generateRayFromCamera<<<blocksPerGrid2d, blockSize2d>>>(cam, iter, traceDepth, dev_paths, guiData->FocalDistance, guiData->UseDepthOfField ? 0.5f * guiData->FocalDistance/guiData->ApertureFNumber : 0.0f);
+    generateRayFromCamera<<<blocksPerGrid2d, blockSize2d>>>(cam, iter, guiData->MaxDepth, dev_paths, guiData->FocalDistance, guiData->UseDepthOfField ? 0.5f * guiData->FocalDistance/guiData->ApertureFNumber : 0.0f);
     checkCUDAError("generate camera ray");
 
     int depth = 0;
