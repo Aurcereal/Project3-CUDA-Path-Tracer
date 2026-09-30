@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#define TEMP_SCALE 3.0f
+
 #define BACKGROUND_COLOR (glm::vec3(0.0f))
 
 enum GeomType

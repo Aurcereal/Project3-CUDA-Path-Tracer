@@ -1,6 +1,6 @@
 #pragma once
 
-#include "sceneStructs.h"
+#include "../sceneStructs.h"
 
 #include <glm/glm.hpp>
 

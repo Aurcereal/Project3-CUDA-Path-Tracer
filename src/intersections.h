@@ -57,6 +57,8 @@ __host__ __device__ float boxIntersectionTest(
     glm::vec3& normal,
     bool& outside);
 
+ __host__ __device__ glm::vec2 bbxIntersectionTest(Ray r, glm::mat4 inverseTransform);
+
 // CHECKITOUT
 /**
  * Test intersection between a ray and a transformed sphere. Untransformed,
@@ -78,4 +80,4 @@ __host__ __device__ float sphereIntersectionTest(
 __host__ __device__ float planeIntersectionTest(Geom plane, Ray r, glm::vec3 &intersectionPoint, glm::vec3 &normal);
 
 //
-__host__ __device__ void sceneIntersectionTest(Geom* geoms, Volume* volumes, Ray r, int geoms_size, thrust::default_random_engine& rng, int& hit_geom_index, float& t_min, glm::vec3& intersect_point, glm::vec3& normal, bool& hitVolume);
+__host__ __device__ void sceneIntersectionTest(Geom* geoms, Volume* volumes, void* density, Ray r, int geoms_size, thrust::default_random_engine& rng, int& hit_geom_index, float& t_min, glm::vec3& intersect_point, glm::vec3& normal, bool& hitVolume);

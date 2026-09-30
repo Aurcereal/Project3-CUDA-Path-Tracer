@@ -1,5 +1,6 @@
 #include "intersections.h"
-#include "volume.h"
+#include "Volume/volume.h"
+#include "Volume/vdb_usage.h"
 
 __host__ __device__ float boxIntersectionTest(
     Geom box,
@@ -173,7 +174,7 @@ __host__ __device__ float sphereIntersectionTest(
     return glm::length(r.origin - intersectionPoint);
 }
 
-__host__ __device__ void sceneIntersectionTest(Geom* geoms, Volume* volumes, Ray r, int geoms_size, thrust::default_random_engine& rng, int& hit_geom_index, float& t_min, glm::vec3& intersect_point, glm::vec3& normal, bool& hitVolume) {
+__host__ __device__ void sceneIntersectionTest(Geom* geoms, Volume* volumes, void* density, Ray r, int geoms_size, thrust::default_random_engine& rng, int& hit_geom_index, float& t_min, glm::vec3& intersect_point, glm::vec3& normal, bool& hitVolume) {
     float t;
     t_min = FLT_MAX;
     bool outside = true;
@@ -220,7 +221,7 @@ __host__ __device__ void sceneIntersectionTest(Geom* geoms, Volume* volumes, Ray
             float tStart = max(0.0f, bbxTs.x);
             float tEnd = min(t_min, bbxTs.y);
 
-            float t = volumeIntersectionTest(r, v, rng, tStart, tEnd);
+            float t = vdbIntersectionTest(density, v, r, rng, tEnd);//volumeIntersectionTest(r, v, rng, tStart, tEnd);
             if(t > 0.0) {
                 // Hit the volume
                 hitVolume = true;

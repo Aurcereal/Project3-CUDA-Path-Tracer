@@ -13,9 +13,12 @@
 #include "intersections.h"
 #include "interactions.h"
 #include "sampling.h"
-#include "volume.h"
+#include "Volume/volume.h"
 
-#include "thrust-usage.h"
+#include "thrust_usage.h"
+
+#include "Volume/vdb_usage.h"
+#include "Volume/vdb_loading.h"
 
 // struct VolumeData {
 //     // TODO: package data together and then pass it into cuda
@@ -91,8 +94,19 @@ static Light* dev_lights = NULL;
 static Material* dev_materials = NULL;
 static PathSegment* dev_paths = NULL;
 static ShadeableIntersection* dev_intersections = NULL;
+static void* d_density = NULL;
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
+
+struct SceneDevice {
+    Geom* geom;
+    Volume* volumes;
+    Light* lights;
+    void* volumeDensity;
+    int num_geoms;
+    int num_volumes;
+    int num_lights;
+};
 
 void InitDataContainer(GuiDataContainer* imGuiData)
 {
@@ -105,6 +119,8 @@ void pathtraceInit(Scene* scene)
 
     const Camera& cam = hst_scene->state.camera;
     const int pixelcount = cam.resolution.x * cam.resolution.y;
+
+    CreateTestNVDB(&hst_scene->volumes[0].invTransform, &d_density);
 
     cudaMalloc(&dev_image, pixelcount * sizeof(glm::vec3));
     cudaMemset(dev_image, 0, pixelcount * sizeof(glm::vec3));
@@ -126,8 +142,6 @@ void pathtraceInit(Scene* scene)
     cudaMalloc(&dev_intersections, pixelcount * sizeof(ShadeableIntersection));
     cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 
-    // TODO: initialize any extra device memeory you need
-
     checkCUDAError("pathtraceInit");
 }
 
@@ -138,7 +152,7 @@ void pathtraceFree()
     cudaFree(dev_geoms);
     cudaFree(dev_materials);
     cudaFree(dev_intersections);
-    // TODO: clean up any extra device memory you created
+    // if(hst_scene && hst_scene->d_grid) cudaFree(hst_scene->d_grid);
 
     checkCUDAError("pathtraceFree");
 }
@@ -203,6 +217,7 @@ __global__ void computeIntersections(
     Geom* geoms,
     int geoms_size,
     Volume* volumes,
+    void* density,
     ShadeableIntersection* intersections)
 {
     int path_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -216,7 +231,7 @@ __global__ void computeIntersections(
         float t_min = -1.0f;
         glm::vec3 intersect_point = glm::vec3(0.0f); glm::vec3 normal = glm::vec3(0.0f);
         bool hitVolume = false;
-        sceneIntersectionTest(geoms, volumes, pathSegment.ray, geoms_size, rng, hit_geom_index, t_min, intersect_point, normal, hitVolume);
+        sceneIntersectionTest(geoms, volumes, density, pathSegment.ray, geoms_size, rng, hit_geom_index, t_min, intersect_point, normal, hitVolume);
 
         intersections[path_index].pathIdx = path_index;
         if (hit_geom_index == -1)
@@ -283,6 +298,7 @@ __global__ void shadeMaterial(
     Geom* geo,
     int num_geoms,
     Volume* volumes,
+    void* density,
     Light* lights,
     int num_lights,
     glm::vec3* image)
@@ -336,7 +352,7 @@ __global__ void shadeMaterial(
                 //
 #if MIS
                 glm::vec3 directContribution = glm::vec3(0.0f);
-                sampleRandomLight(geo, num_geoms, volumes, lights, num_lights, materials, p.ray.origin + p.ray.direction * intersection.t, intersection.surfaceNormal, -p.ray.direction, materials[intersection.materialId], rng, directContribution);
+                sampleRandomLight(geo, num_geoms, volumes, density, lights, num_lights, materials, p.ray.origin + p.ray.direction * intersection.t, intersection.surfaceNormal, -p.ray.direction, materials[intersection.materialId], rng, directContribution);
                 image[p.pixelIndex] += p.color * directContribution;
 #endif
 
@@ -466,6 +482,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
             dev_geoms,
             hst_scene->geoms.size(),
             dev_volumes,
+            d_density,
             dev_intersections
         );
         checkCUDAError("trace one bounce");
@@ -507,6 +524,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
                 dev_geoms,
                 hst_scene->geoms.size(),
                 dev_volumes,
+                d_density,
                 dev_lights,
                 hst_scene->lights.size(),
                 dev_image

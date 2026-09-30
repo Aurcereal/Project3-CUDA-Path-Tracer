@@ -1,6 +1,6 @@
 #include "volume.h"
-#include "utilities.h"
-#include "cuda-utilities.h"
+#include "../utilities.h"
+#include "../cuda-utilities.h"
 
 __host__ __device__ float henyeyGreensteinSingle(float cosTheta, float g) {
     float denom = 1.0f + g*g + 2.0f * g * cosTheta;

@@ -1,4 +1,4 @@
-#include "thrust-usage.h"
+#include "thrust_usage.h"
 
 #include <thrust/device_vector.h>
 #include <thrust/sort.h>
