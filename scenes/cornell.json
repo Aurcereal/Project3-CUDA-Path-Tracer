@@ -104,7 +104,7 @@
     [
         {
             "MATERIAL":"cloud",
-            "DENSITYMULT":20,
+            "DENSITYMULT":100,
             "TRANS":[0.0,3.0,0.0],
             "ROTAT":[90.0,0.0,90.0],
             "SCALE":[0.02,0.02,0.02],

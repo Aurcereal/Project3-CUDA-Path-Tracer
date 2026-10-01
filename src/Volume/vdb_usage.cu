@@ -17,40 +17,28 @@ __host__ __device__  float vdbIntersectionTest(void* vGrid, const Volume& volume
     nanovdb::FloatGrid* grid = (nanovdb::FloatGrid*)vGrid;
     auto accessor = grid->getAccessor();
 
-    // grid->worldBBox
+    vec3 lro = grid->worldToIndex(vec3(volume.userInvTransform * vec4(ray.origin, 1.0f)));
+    vec3 lrd = grid->worldToIndexDir(vec3(volume.userInvTransform * vec4(ray.direction, 0.0f)));
 
-    // nanovdb::Coord ijk(10,24,30);
-
-    // grid->tree().template get<nanovdb::GetUpper<float>>(ijk);
     thrust::uniform_real_distribution<float> u01(0, 1);
 
     float t = max(0.0f, ts.x);
     int iter = 0;
     nanovdb::Coord ijk;
-    glm::vec3 newPoint;
+    glm::vec3 currPnt;
     while(t < tMax) {
-        {
-            newPoint = ray.origin + ray.direction * t;
-            // <->
-            newPoint = vec3(volume.userInvTransform * vec4(newPoint, 1.0f));//1.0f / TEMP_SCALE;
-            // <->
-            vec3 localPoint = grid->worldToIndex(newPoint);
-            ijk = nanovdb::Coord(floor(localPoint.x), floor(localPoint.y), floor(localPoint.z));
-        }
-
-        float currMax = grid->tree().template get<nanovdb::GetUpper<float>>(ijk)->getMax();
-        t += -log(max(1e-5, u01(rng))) / (volume.extinctionMult * currMax);// volume.extinctionMax;
+        currPnt = lro + lrd * t;
+        ijk = nanovdb::Coord(floor(currPnt.x), floor(currPnt.y), floor(currPnt.z));
+        auto node = grid->tree().template get<nanovdb::GetUpper<float>>(ijk);
+        float currMax = node->getMax();
+        t += -log(max(1e-5, u01(rng))) / (volume.extinctionMult * currMax);
 
         if(t >= tMax) {
             return -1.0f;
         }
 
-        newPoint = ray.origin + ray.direction * t;
-        // <->
-        newPoint = vec3(volume.userInvTransform * vec4(newPoint, 1.0f));//1.0f / TEMP_SCALE;
-        // <->
-        vec3 localPoint = grid->worldToIndex(newPoint);
-        ijk = nanovdb::Coord(floor(localPoint.x), floor(localPoint.y), floor(localPoint.z));
+        currPnt = lro + lrd * t;
+        ijk = nanovdb::Coord(floor(currPnt.x), floor(currPnt.y), floor(currPnt.z));
         float extinction = accessor.getValue(ijk);
 
         if(u01(rng) <= extinction / currMax) {
