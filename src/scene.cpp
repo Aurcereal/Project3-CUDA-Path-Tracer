@@ -119,10 +119,9 @@ void Scene::loadFromJSON(const std::string& jsonName)
         materials.push_back(volMaterial);
 
         Volume v;
-        v.extinctionMax = 2.0f;
+        v.extinctionMult = 20.0f;
         v.materialid = materials.size()-1;
         v.invTransform = glm::inverse(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(14.0f)));
-        // CreateTestNVDB(&v.invTransform, &d_grid);//LoadNVDB("clouds.nvdb", &v.invTransform, &d_grid); // OVERRIDE TRANSFORM
         volumes.push_back(v);
     }
     

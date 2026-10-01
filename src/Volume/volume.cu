@@ -65,7 +65,7 @@ __host__ __device__ float volumeIntersectionTest(Ray ray, const Volume& volume, 
     float t = tVolumeStart;
     int iter = 0;
     while(t < tMax) {
-        t += -log(max(1e-5, u01(rng))) / volume.extinctionMax;
+        t += -log(max(1e-5, u01(rng))) / volume.extinctionMult;
 
         if(t >= tMax) {
             return -1.0f;
@@ -74,7 +74,7 @@ __host__ __device__ float volumeIntersectionTest(Ray ray, const Volume& volume, 
         glm::vec3 newPoint = ray.origin + ray.direction * t;
         float extinction = sampleVolume(volume, newPoint);
 
-        if(u01(rng) <= extinction / volume.extinctionMax) {
+        if(u01(rng) <= extinction / volume.extinctionMult) {
             return t;
         }
 

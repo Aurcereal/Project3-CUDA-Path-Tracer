@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#define TEMP_SCALE 3.0f
+#define TEMP_SCALE 0.02f //3
 
 #define BACKGROUND_COLOR (glm::vec3(0.0f))
 
@@ -46,7 +46,7 @@ struct Light
 struct Volume {
     glm::mat4 invTransform;
     float albedo;
-    float extinctionMax; // For the entire volume, or should it be calculated along ray first?
+    float extinctionMult; // For the entire volume, or should it be calculated along ray first?
     float g;
     int materialid;
 };
