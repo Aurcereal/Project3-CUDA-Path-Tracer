@@ -61,7 +61,14 @@ void Scene::loadFromJSON(const std::string& jsonName)
             newMaterial.color = glm::vec3(col[0], col[1], col[2]);
             newMaterial.hasReflective = 1.0f;
         }
-        newMaterial.isVolume = false;
+        else if (p["TYPE"] == "Volume") {
+            newMaterial.isVolume = true;
+            const auto& col = p["RGB"];
+            newMaterial.color = glm::vec3(col[0], col[1], col[2]);
+            newMaterial.g1 = p["G1"];
+            newMaterial.g2 = p["G2"];
+            newMaterial.gBlend = p["GBLEND"];
+        }
         MatNameToID[name] = materials.size();
         materials.emplace_back(newMaterial);
     }
@@ -74,10 +81,10 @@ void Scene::loadFromJSON(const std::string& jsonName)
         {
             newGeom.type = CUBE;
         }
-        else if(type == "sphere")
+        else if (type == "sphere")
         {
             newGeom.type = SPHERE;
-        } 
+        }
         else {
             newGeom.type = PLANE;
         }
@@ -93,7 +100,7 @@ void Scene::loadFromJSON(const std::string& jsonName)
         newGeom.inverseTransform = glm::inverse(newGeom.transform);
         newGeom.invTranspose = glm::inverseTranspose(newGeom.transform);
 
-        if(materials[newGeom.materialid].emittance > 0.0f) {
+        if (materials[newGeom.materialid].emittance > 0.0f) {
             // Should be put in light array
             Light l;
             assert(newGeom.type == PLANE);
@@ -101,29 +108,42 @@ void Scene::loadFromJSON(const std::string& jsonName)
             l.localPdf = 1.0f / (newGeom.scale.x * newGeom.scale.y);
             lights.push_back(l);
 
-            newGeom.lightid = lights.size()-1;
-        } else {
+            newGeom.lightid = lights.size() - 1;
+        }
+        else {
             newGeom.lightid = -1;
         }
 
         geoms.push_back(newGeom);
     }
 
+    const auto& volumesData = data["Volumes"];
+    assert(volumesData.size() == 1);
+    for (const auto& p : volumesData)
     {
-        Material volMaterial;
-        volMaterial.color = glm::vec3(1.0f);// glm::vec3(0.999f);
-        volMaterial.isVolume = true;
-        volMaterial.g1 = 0.9f;
-        volMaterial.g2 = -0.4f;
-        volMaterial.gBlend = 0.3f;
-        materials.push_back(volMaterial);
-
         Volume v;
-        v.extinctionMult = 20.0f;
-        v.materialid = materials.size()-1;
-        v.invTransform = glm::inverse(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(14.0f)));
+
+        v.extinctionMult = p["DENSITYMULT"];
+        v.materialid = MatNameToID[p["MATERIAL"]];
+
+        {
+            const auto& trans = p["TRANS"];
+            const auto& rotat = p["ROTAT"];
+            const auto& scal = p["SCALE"];
+            glm::vec3 translation = glm::vec3(trans[0], trans[1], trans[2]);
+            glm::vec3 rotation = glm::vec3(rotat[0], rotat[1], rotat[2]);
+            glm::vec3 scale = glm::vec3(scal[0], scal[1], scal[2]);
+            glm::mat4 transform = utilityCore::buildTransformationMatrix(
+                translation, rotation, scale);
+            v.invTransform = glm::mat4(1.0f);
+            v.userInvTransform = glm::inverse(transform);
+
+            vdbFileName = p["VDBFILE"];
+        }
+
         volumes.push_back(v);
     }
+
     
     const auto& cameraData = data["Camera"];
     Camera& camera = state.camera;

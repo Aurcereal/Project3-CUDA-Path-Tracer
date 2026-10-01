@@ -27,6 +27,14 @@
             "TYPE":"Specular",
             "RGB":[0.98, 0.98, 0.98],
             "ROUGHNESS":0.0
+        },
+        "cloud":
+        {
+            "TYPE":"Volume",
+            "RGB":[1.0,1.0,1.0],
+            "G1": 0.9,
+            "G2": -0.4,
+            "GBLEND": 0.3
         }
     },
     "Camera":
@@ -90,6 +98,17 @@
             "TRANS":[-1.0,4.0,-1.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
+        }
+    ],
+    "Volumes":
+    [
+        {
+            "MATERIAL":"cloud",
+            "DENSITYMULT":20,
+            "TRANS":[0.0,3.0,0.0],
+            "ROTAT":[90.0,0.0,90.0],
+            "SCALE":[0.02,0.02,0.02],
+            "VDBFILE":"../cloud1.nvdb"
         }
     ]
 }

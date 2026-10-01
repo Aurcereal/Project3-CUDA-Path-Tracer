@@ -7,8 +7,6 @@
 #include <string>
 #include <vector>
 
-#define TEMP_SCALE 0.02f //3
-
 #define BACKGROUND_COLOR (glm::vec3(0.0f))
 
 enum GeomType
@@ -45,6 +43,7 @@ struct Light
 
 struct Volume {
     glm::mat4 invTransform;
+    glm::mat4 userInvTransform;
     float albedo;
     float extinctionMult; // For the entire volume, or should it be calculated along ray first?
     float g;

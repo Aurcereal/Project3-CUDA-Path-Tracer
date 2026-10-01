@@ -23,9 +23,17 @@ void CreateTestNVDB(mat4* invTransform, void** d_grid) {
 	*d_grid = NULL;
 	cudaMalloc(d_grid, hostHandle.size());
 	cudaMemcpy(*d_grid, hostHandle.data(), hostHandle.size(), cudaMemcpyHostToDevice);
-	    
+	 
 	// BBX
-	*invTransform = glm::scale(mat4(1.0f), vec3(1.0f / TEMP_SCALE));// *glm::inverse(glm::translate(mat4(1.0f), avg) * glm::scale(mat4(1.0f), scale));
+	auto grid = hostHandle.grid<float>();
+	auto rootBbx = grid->worldBBox();
+	vec3 bbxMin = vec3(rootBbx.min()[0], rootBbx.min()[1], rootBbx.min()[2]);
+	vec3 bbxMax = vec3(rootBbx.max()[0], rootBbx.max()[1], rootBbx.max()[2]);
+
+	vec3 avg = 0.5f * (bbxMin + bbxMax);
+	vec3 scale = bbxMax - bbxMin;
+
+	*invTransform = glm::inverse(glm::translate(mat4(1.0f), avg) * glm::scale(mat4(1.0f), scale));
 }
 
 void LoadNVDB(const std::string& fileName, mat4* invTransform, void** d_grid) {
@@ -52,5 +60,5 @@ void LoadNVDB(const std::string& fileName, mat4* invTransform, void** d_grid) {
 	vec3 avg = 0.5f * (bbxMin + bbxMax);
 	vec3 scale = bbxMax - bbxMin;
 	
-	*invTransform = glm::inverse(glm::scale(mat4(1.0f), vec3(TEMP_SCALE)) * glm::translate(mat4(1.0f), avg) * glm::scale(mat4(1.0f), scale));
+	*invTransform = glm::inverse(glm::translate(mat4(1.0f), avg) * glm::scale(mat4(1.0f), scale));
 }

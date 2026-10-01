@@ -9,8 +9,9 @@ using namespace glm;
 
 __host__ __device__  float vdbIntersectionTest(void* vGrid, const Volume& volume, Ray ray, thrust::default_random_engine& rng, float tMax) {
     // BBX
-    vec2 ts = bbxIntersectionTest(ray, volume.invTransform);
+    vec2 ts = bbxIntersectionTest(ray, volume.invTransform * volume.userInvTransform);
     if(ts.x >= ts.y || ts.y < 0.0f) return -1.0f;
+    tMax = min(tMax, ts.y);
 
     //
     nanovdb::FloatGrid* grid = (nanovdb::FloatGrid*)vGrid;
@@ -31,7 +32,7 @@ __host__ __device__  float vdbIntersectionTest(void* vGrid, const Volume& volume
         {
             newPoint = ray.origin + ray.direction * t;
             // <->
-            newPoint *= 1.0f / TEMP_SCALE;
+            newPoint = vec3(volume.userInvTransform * vec4(newPoint, 1.0f));//1.0f / TEMP_SCALE;
             // <->
             vec3 localPoint = grid->worldToIndex(newPoint);
             ijk = nanovdb::Coord(floor(localPoint.x), floor(localPoint.y), floor(localPoint.z));
@@ -46,7 +47,7 @@ __host__ __device__  float vdbIntersectionTest(void* vGrid, const Volume& volume
 
         newPoint = ray.origin + ray.direction * t;
         // <->
-        newPoint *= 1.0f / TEMP_SCALE;
+        newPoint = vec3(volume.userInvTransform * vec4(newPoint, 1.0f));//1.0f / TEMP_SCALE;
         // <->
         vec3 localPoint = grid->worldToIndex(newPoint);
         ijk = nanovdb::Coord(floor(localPoint.x), floor(localPoint.y), floor(localPoint.z));

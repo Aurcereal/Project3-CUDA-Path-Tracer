@@ -15,4 +15,6 @@ public:
     std::vector<Material> materials;
     std::vector<Light> lights;
     RenderState state;
+
+    std::string vdbFileName;
 };

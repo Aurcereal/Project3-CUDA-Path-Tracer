@@ -216,7 +216,16 @@ __host__ __device__ void sceneIntersectionTest(Geom* geoms, Volume* volumes, voi
     for(int i=0; i<1; ++i) {
         const Volume& v = volumes[i];
 
-        glm::vec2 bbxTs = bbxIntersectionTest(r, v.invTransform);
+#if 1
+        float t = vdbIntersectionTest(density, v, r, rng, t_min);//volumeIntersectionTest(r, v, rng, tStart, tEnd);
+        if (t > 0.0) {
+            // Hit the volume
+            hitVolume = true;
+            t_min = t;
+            hit_geom_index = i;
+        }
+#else
+        glm::vec2 bbxTs = bbxIntersectionTest(r, v.invTransform * v.userInvTransform);
         if(bbxTs.x < bbxTs.y) {
             float tStart = max(0.0f, bbxTs.x);
             float tEnd = min(t_min, bbxTs.y);
@@ -229,6 +238,8 @@ __host__ __device__ void sceneIntersectionTest(Geom* geoms, Volume* volumes, voi
                 hit_geom_index = i;
             }
         }
+
+#endif
     }
 
     

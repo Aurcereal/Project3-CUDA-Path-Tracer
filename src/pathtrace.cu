@@ -120,7 +120,7 @@ void pathtraceInit(Scene* scene)
     const Camera& cam = hst_scene->state.camera;
     const int pixelcount = cam.resolution.x * cam.resolution.y;
 
-    LoadNVDB("../cloud1.nvdb", &hst_scene->volumes[0].invTransform, &d_density);//CreateTestNVDB(&hst_scene->volumes[0].invTransform, &d_density);
+    LoadNVDB(hst_scene->vdbFileName, &hst_scene->volumes[0].invTransform, &d_density);//CreateTestNVDB(&hst_scene->volumes[0].invTransform, &d_density);
 
     cudaMalloc(&dev_image, pixelcount * sizeof(glm::vec3));
     cudaMemset(dev_image, 0, pixelcount * sizeof(glm::vec3));
