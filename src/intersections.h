@@ -57,6 +57,7 @@ __host__ __device__ float boxIntersectionTest(
     glm::vec3& normal,
     bool& outside);
 
+__host__ __device__ glm::vec2 alignedBbxIntersectionTest(glm::vec3 ro, glm::vec3 rd, glm::vec3 min, glm::vec3 max);
  __host__ __device__ glm::vec2 bbxIntersectionTest(Ray r, glm::mat4 inverseTransform);
 
 // CHECKITOUT

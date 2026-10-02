@@ -58,6 +58,19 @@ __host__ __device__ float boxIntersectionTest(
     return -1;
 }
 
+__host__ __device__ glm::vec2 alignedBbxIntersectionTest(glm::vec3 ro, glm::vec3 rd, glm::vec3 min, glm::vec3 max) {
+    glm::vec3 ts1 = (min - ro) / rd;
+    glm::vec3 ts2 = (max - ro) / rd;
+    
+    float tEnter = glm::max(glm::max(glm::min(ts1.x, ts2.x), glm::min(ts1.y, ts2.y)), glm::min(ts1.z, ts2.z));
+    float tExit = glm::min(glm::min(glm::max(ts1.x, ts2.x), glm::max(ts1.y, ts2.y)), glm::max(ts1.z, ts2.z));
+
+    if (tExit < tEnter || tExit < 0.0f)
+        return glm::vec2(-1.0f, -1.0f);
+
+    return glm::vec2(tEnter, tExit);
+}
+
 __host__ __device__ glm::vec2 bbxIntersectionTest(Ray r, glm::mat4 inverseTransform) {
     Ray q;
     q.origin    = multiplyMV(inverseTransform, glm::vec4(r.origin   , 1.0f));
