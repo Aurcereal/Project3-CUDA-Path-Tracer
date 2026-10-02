@@ -2,42 +2,47 @@
 #include "../utilities.h"
 #include "../cuda-utilities.h"
 
-__host__ __device__ float henyeyGreensteinSingle(float cosTheta, float g) {
-    float denom = 1.0f + g*g + 2.0f * g * cosTheta;
-    return 0.25 * IPI * (1.0f - g*g) / (denom * max(1e-5, sqrt(denom)));
+#define G_DECAY 0.75f
+
+__host__ __device__ float henyeyGreensteinSingle(float cosTheta, float gPure, int depth) {
+     float gMulti = gPure * powf(G_DECAY, static_cast<float>(depth));
+
+    float denom = 1.0f + gMulti*gMulti + 2.0f * gMulti * cosTheta;
+    return 0.25 * IPI * (1.0f - gMulti*gMulti) / (denom * max(1e-5, sqrt(denom)));
 }
 
-__host__ __device__ float henyeyGreensteinDouble(float cosTheta, float g1, float g2, float blend) {
-    return henyeyGreensteinSingle(cosTheta, g1) * (1.0f - blend) + henyeyGreensteinSingle(cosTheta, g2) * blend;
+__host__ __device__ float henyeyGreensteinDouble(float cosTheta, float g1, float g2, float blend, int depth) {
+    return henyeyGreensteinSingle(cosTheta, g1, depth) * (1.0f - blend) + henyeyGreensteinSingle(cosTheta, g2, depth) * blend;
 }
 
-__host__ __device__ glm::vec3 sampleHenyeyGreensteinSingle(glm::vec3 wo, float g, thrust::default_random_engine& rng, float& outPdf) {
+__host__ __device__ glm::vec3 sampleHenyeyGreensteinSingle(glm::vec3 wo, float gPure, int depth, thrust::default_random_engine& rng, float& outPdf) {
       thrust::uniform_real_distribution u01(0.0f, 1.0f);
       glm::vec2 xi = glm::vec2(u01(rng), u01(rng));
+      float gMulti = gPure * powf(G_DECAY, static_cast<float>(depth));
 
-       float cosTheta;
-       if (glm::abs(g) < 1e-3f)
-           cosTheta = 1.0f - 2.0f * xi.x;
-       else
-           cosTheta = -1.0f / (2.0f * g) *
-                      (1.0f + SQR(g) - SQR((1 - SQR(g)) / (1.0f + g - 2.0f * g * xi.x)));
+        float cosTheta;
+        if (glm::abs(gMulti) < 1e-3f)
+            cosTheta = 1.0f - 2.0f * xi.x;
+        else
+            cosTheta = -1.0f / (2.0f * gMulti) *
+                        (1.0f + SQR(gMulti) - SQR((1 - SQR(gMulti)) / (1.0f + gMulti - 2.0f * gMulti * xi.x)));
 
-       float sinTheta = sqrt(max(1 - SQR(cosTheta), 1e-5));
-       float phi = 2.0f * PI * xi.y;
-       glm::mat3 wFrame = FrameFromZ(wo);
-       glm::vec3 wi = wFrame * (SphericalDirection(cosTheta, sinTheta, phi));
+        float sinTheta = sqrt(max(1 - SQR(cosTheta), 1e-5));
+        float phi = 2.0f * PI * xi.y;
+        glm::mat3 wFrame = FrameFromZ(wo);
+        glm::vec3 wi = wFrame * (SphericalDirection(cosTheta, sinTheta, phi));
 
-       outPdf = henyeyGreensteinSingle(cosTheta, g);
+       outPdf = henyeyGreensteinSingle(cosTheta, gPure, depth);
        return wi;
 }
 
-__host__ __device__ glm::vec3 sampleHenyeyGreensteinDouble(glm::vec3 wo, float g1, float g2, float blend, thrust::default_random_engine& rng, float& outPdf) {
+__host__ __device__ glm::vec3 sampleHenyeyGreensteinDouble(glm::vec3 wo, float g1, float g2, float blend, int depth, thrust::default_random_engine& rng, float& outPdf) {
     thrust::uniform_real_distribution u01(0.0f, 1.0f);
 
     bool gChoice = u01(rng) <= blend;
     float g = gChoice ? g2 : g1;
     float pdf = 100.0f;
-    glm::vec3 wi = sampleHenyeyGreensteinSingle(wo, g, rng, pdf);
+    glm::vec3 wi = sampleHenyeyGreensteinSingle(wo, g, depth, rng, pdf);
 
     outPdf = pdf * (gChoice ? blend : 1.0f - blend);
 

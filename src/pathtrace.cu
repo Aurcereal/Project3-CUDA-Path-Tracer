@@ -231,7 +231,7 @@ __global__ void computeIntersections(
         float t_min = -1.0f;
         glm::vec3 intersect_point = glm::vec3(0.0f); glm::vec3 normal = glm::vec3(0.0f);
         bool hitVolume = false;
-        sceneIntersectionTest(geoms, volumes, density, pathSegment.ray, geoms_size, rng, hit_geom_index, t_min, intersect_point, normal, hitVolume);
+        sceneIntersectionTest(geoms, volumes, density, depth, pathSegment.ray, geoms_size, rng, hit_geom_index, t_min, intersect_point, normal, hitVolume);
 
         intersections[path_index].pathIdx = path_index;
         if (hit_geom_index == -1)
@@ -291,6 +291,7 @@ __global__ void shadeFakeMaterial(
 // bump mapping.
 __global__ void shadeMaterial(
     int iter,
+    int depth,
     int num_paths,
     ShadeableIntersection* shadeableIntersections,
     PathSegment* pathSegments,
@@ -352,17 +353,18 @@ __global__ void shadeMaterial(
                 //
 #if MIS
                 glm::vec3 directContribution = glm::vec3(0.0f);
-                sampleRandomLight(geo, num_geoms, volumes, density, lights, num_lights, materials, p.ray.origin + p.ray.direction * intersection.t, intersection.surfaceNormal, -p.ray.direction, materials[intersection.materialId], rng, directContribution);
+                sampleRandomLight(geo, num_geoms, volumes, density, depth, lights, num_lights, materials, p.ray.origin + p.ray.direction * intersection.t, intersection.surfaceNormal, -p.ray.direction, materials[intersection.materialId], rng, directContribution);
                 image[p.pixelIndex] += p.color * directContribution;
 #endif
 
                 if(material.isVolume) {
-                    glm::vec3 wi = sampleHenyeyGreensteinDouble(-p.ray.direction, material.g1, material.g2, material.gBlend, rng, pdf);
+                    glm::vec3 wi = sampleHenyeyGreensteinDouble(-p.ray.direction, material.g1, material.g2, material.gBlend, depth, rng, pdf);
 
                     p.ray.origin = hitPoint;
                     p.ray.direction = wi;
 
-                    colorMult = material.color;
+                    const float c = 0.75f;
+                    colorMult = material.color * powf(c/EXTINCTION_DECAY, static_cast<float>(depth));
                 } else {
                     // Bounce & Update Throughput
                     glm::vec3 fLambert = glm::vec3(0.0f);
@@ -463,7 +465,6 @@ void pathtrace(uchar4* pbo, int frame, int iter)
         );
         checkCUDAError("trace one bounce");
         cudaDeviceSynchronize();
-        depth++;
 
         // TODO:
         // --- Shading Stage ---
@@ -493,6 +494,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 
             shadeMaterial << <numblocksPathSegmentTracing, blockSize1d >> > (
                 iter,
+                depth,
                 num_paths,
                 dev_intersections,
                 dev_paths,
@@ -526,6 +528,8 @@ void pathtrace(uchar4* pbo, int frame, int iter)
         {
             guiData->TracedDepth = depth;
         }
+
+        depth++;
     }
 
     //// Assemble this iteration and apply it to the image

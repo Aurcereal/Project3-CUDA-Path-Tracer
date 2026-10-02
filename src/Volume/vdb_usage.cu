@@ -17,7 +17,7 @@ __host__ __device__ inline nanovdb::Coord getCoord(vec3 ro, vec3 rd, float t) {
 
 #define VDBTRAVERSEEPS 1e-4f
 
-__host__ __device__  float vdbIntersectionTest(void* vGrid, const Volume& volume, Ray ray, thrust::default_random_engine& rng, float tMax) {
+__host__ __device__  float vdbIntersectionTest(void* vGrid, int depth, const Volume& volume, Ray ray, thrust::default_random_engine& rng, float tMax) {
     // BBX
     vec2 ts = bbxIntersectionTest(ray, volume.invTransform * volume.userInvTransform);
     if(ts.x >= ts.y || ts.y < 0.0f) return -1.0f;
@@ -36,6 +36,8 @@ __host__ __device__  float vdbIntersectionTest(void* vGrid, const Volume& volume
     int iter = 0;
     nanovdb::Coord ijk;
     glm::vec3 currPnt;
+
+    float multiDensityMult = powf(EXTINCTION_DECAY, static_cast<float>(depth));
 
     while(t < tMax) {
         bool uniformMode = false;
@@ -72,10 +74,10 @@ __host__ __device__  float vdbIntersectionTest(void* vGrid, const Volume& volume
         if (t >= tMax) return -1.0f;
 
         ijk = getCoord(lro, lrd, t); // just toCoord(currPnt)
-        float currMax = uniformMode ? accessor.getValue(ijk) : leafNode->getMax();// grid->tree().template get<nanovdb::GetLower<float>>(ijk)->getMax();// node->getMax();
-        float deltaT = -log(max(1e-5, u01(rng))) / (volume.extinctionMult * currMax);
+        float currMax = uniformMode ? accessor.getValue(ijk) : leafNode->getMax();
+        float deltaT = -log(max(1e-5f, u01(rng))) / (volume.extinctionMult * currMax * multiDensityMult);
 
-        vec3 bbxMin = vec3(ijk.x() & ~7, ijk.y() & ~7, ijk.z() & ~7);
+        vec3 bbxMin = vec3(ijk.x() & ~7, ijk.y() & ~7, ijk.z() & ~7); // TODO: turn this bbx stuff into a inline func or smth
         vec3 bbxMax = bbxMin + vec3(8);
         float deltaTcap = alignedBbxIntersectionTest(currPnt, lrd, bbxMin, bbxMax).y;
         if (deltaT > deltaTcap) {

@@ -187,7 +187,7 @@ __host__ __device__ float sphereIntersectionTest(
     return glm::length(r.origin - intersectionPoint);
 }
 
-__host__ __device__ void sceneIntersectionTest(Geom* geoms, Volume* volumes, void* density, Ray r, int geoms_size, thrust::default_random_engine& rng, int& hit_geom_index, float& t_min, glm::vec3& intersect_point, glm::vec3& normal, bool& hitVolume) {
+__host__ __device__ void sceneIntersectionTest(Geom* geoms, Volume* volumes, void* density, int depth, Ray r, int geoms_size, thrust::default_random_engine& rng, int& hit_geom_index, float& t_min, glm::vec3& intersect_point, glm::vec3& normal, bool& hitVolume) {
     float t;
     t_min = FLT_MAX;
     bool outside = true;
@@ -230,7 +230,7 @@ __host__ __device__ void sceneIntersectionTest(Geom* geoms, Volume* volumes, voi
         const Volume& v = volumes[i];
 
 #if 1
-        float t = vdbIntersectionTest(density, v, r, rng, t_min);//volumeIntersectionTest(r, v, rng, tStart, tEnd);
+        float t = vdbIntersectionTest(density, depth, v, r, rng, t_min);//volumeIntersectionTest(r, v, rng, tStart, tEnd);
         if (t > 0.0) {
             // Hit the volume
             hitVolume = true;

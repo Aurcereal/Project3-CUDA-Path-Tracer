@@ -7,10 +7,10 @@
 #include <thrust/random.h>
 
 // TODO: move phase functions to phase functions maybe? if not DELETE this
-__host__ __device__ float henyeyGreensteinSingle(float cosTheta, float g); // Is normalized and sample function matches exactly so also functions as pdf
-__host__ __device__ float henyeyGreensteinDouble(float cosTheta, float g1, float g2, float blend);
-__host__ __device__ glm::vec3 sampleHenyeyGreensteinSingle(glm::vec3 wo, float g, thrust::default_random_engine& rng, float& outPdf);
-__host__ __device__ glm::vec3 sampleHenyeyGreensteinDouble(glm::vec3 wo, float g1, float g2, float blend, thrust::default_random_engine& rng, float& outPdf);
+__host__ __device__ float henyeyGreensteinSingle(float cosTheta, float g, int depht); // Is normalized and sample function matches exactly so also functions as pdf
+__host__ __device__ float henyeyGreensteinDouble(float cosTheta, float g1, float g2, float blend, int depth);
+__host__ __device__ glm::vec3 sampleHenyeyGreensteinSingle(glm::vec3 wo, float g, int depth, thrust::default_random_engine& rng, float& outPdf);
+__host__ __device__ glm::vec3 sampleHenyeyGreensteinDouble(glm::vec3 wo, float g1, float g2, float blend, int depth, thrust::default_random_engine& rng, float& outPdf);
 
 __host__ __device__ float sampleVolume(const Volume& volume, glm::vec3 p);
 
