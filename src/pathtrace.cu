@@ -20,13 +20,6 @@
 #include "Volume/vdb_usage.h"
 #include "Volume/vdb_loading.h"
 
-// struct VolumeData {
-//     // TODO: package data together and then pass it into cuda
-//     Volume* volumes;
-//     int num_volumes;
-//     // etc
-// };
-
 #define ERRORCHECK 1
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
@@ -216,8 +209,7 @@ __global__ void computeIntersections(
     PathSegment* pathSegments,
     Geom* geoms,
     int geoms_size,
-    Volume* volumes,
-    void* density,
+    VolumeData vd,
     ShadeableIntersection* intersections)
 {
     int path_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -231,7 +223,7 @@ __global__ void computeIntersections(
         float t_min = -1.0f;
         glm::vec3 intersect_point = glm::vec3(0.0f); glm::vec3 normal = glm::vec3(0.0f);
         bool hitVolume = false;
-        sceneIntersectionTest(geoms, volumes, density, depth, pathSegment.ray, geoms_size, rng, hit_geom_index, t_min, intersect_point, normal, hitVolume);
+        sceneIntersectionTest(geoms, vd, pathSegment.ray, geoms_size, rng, hit_geom_index, t_min, intersect_point, normal, hitVolume);
 
         intersections[path_index].pathIdx = path_index;
         if (hit_geom_index == -1)
@@ -240,7 +232,7 @@ __global__ void computeIntersections(
         }
         else if(hitVolume) {
             intersections[path_index].t = t_min;
-            intersections[path_index].materialId = volumes[hit_geom_index].materialid;
+            intersections[path_index].materialId = vd.volumes[hit_geom_index].materialid;
             intersections[path_index].geomId = hit_geom_index;
         } else {
             // The ray hits something
@@ -298,8 +290,7 @@ __global__ void shadeMaterial(
     Material* materials,
     Geom* geo,
     int num_geoms,
-    Volume* volumes,
-    void* density,
+    VolumeData vd,
     Light* lights,
     int num_lights,
     glm::vec3* image)
@@ -353,18 +344,17 @@ __global__ void shadeMaterial(
                 //
 #if MIS
                 glm::vec3 directContribution = glm::vec3(0.0f);
-                sampleRandomLight(geo, num_geoms, volumes, density, depth, lights, num_lights, materials, p.ray.origin + p.ray.direction * intersection.t, intersection.surfaceNormal, -p.ray.direction, materials[intersection.materialId], rng, directContribution);
+                sampleRandomLight(geo, num_geoms, vd, lights, num_lights, materials, p.ray.origin + p.ray.direction * intersection.t, intersection.surfaceNormal, -p.ray.direction, materials[intersection.materialId], rng, directContribution);
                 image[p.pixelIndex] += p.color * directContribution;
 #endif
 
                 if(material.isVolume) {
-                    glm::vec3 wi = sampleHenyeyGreensteinDouble(-p.ray.direction, material.g1, material.g2, material.gBlend, depth, rng, pdf);
+                    glm::vec3 wi = sampleHenyeyGreensteinDouble(-p.ray.direction, material.g1, material.g2, material.gBlend, vd, rng, pdf);
 
                     p.ray.origin = hitPoint;
                     p.ray.direction = wi;
 
-                    const float c = 0.75f;
-                    colorMult = material.color * powf(c/EXTINCTION_DECAY, static_cast<float>(depth));
+                    colorMult = material.color * powf(vd.scatteringDecay/vd.densityDecay, static_cast<float>(depth));
                 } else {
                     // Bounce & Update Throughput
                     glm::vec3 fLambert = glm::vec3(0.0f);
@@ -417,6 +407,16 @@ __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iteration
  */
 void pathtrace(uchar4* pbo, int frame, int iter)
 {
+
+    VolumeData vd;
+    vd.volumes = dev_volumes;
+    vd.num_volumes = hst_scene->volumes.size();
+    vd.density = d_density;
+    vd.bounceDepth = -1;
+    vd.gDecay = 1.0f;// 0.75f;
+    vd.densityDecay = 1.0f;// 0.75f;
+    vd.scatteringDecay = 1.0f;// 0.75f;
+
     const int traceDepth = hst_scene->state.traceDepth;
     const Camera& cam = hst_scene->state.camera;
     const int pixelcount = cam.resolution.x * cam.resolution.y;
@@ -447,6 +447,8 @@ void pathtrace(uchar4* pbo, int frame, int iter)
     bool iterationComplete = false;
     while (!iterationComplete)
     {
+        vd.bounceDepth = depth;
+
         // clean shading chunks
         cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 
@@ -459,8 +461,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
             dev_paths,
             dev_geoms,
             hst_scene->geoms.size(),
-            dev_volumes,
-            d_density,
+            vd,
             dev_intersections
         );
         checkCUDAError("trace one bounce");
@@ -501,8 +502,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
                 dev_materials,
                 dev_geoms,
                 hst_scene->geoms.size(),
-                dev_volumes,
-                d_density,
+                vd,
                 dev_lights,
                 hst_scene->lights.size(),
                 dev_image

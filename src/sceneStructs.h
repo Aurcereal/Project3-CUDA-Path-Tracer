@@ -50,6 +50,18 @@ struct Volume {
     int materialid;
 };
 
+struct VolumeData {
+    Volume* volumes;
+    int num_volumes;
+
+    void* density;
+    int bounceDepth;
+
+    float gDecay;
+    float densityDecay;
+    float scatteringDecay;
+};
+
 struct Material
 {
     glm::vec3 color;

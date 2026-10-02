@@ -2,23 +2,21 @@
 #include "../utilities.h"
 #include "../cuda-utilities.h"
 
-#define G_DECAY 0.75f
-
-__host__ __device__ float henyeyGreensteinSingle(float cosTheta, float gPure, int depth) {
-     float gMulti = gPure * powf(G_DECAY, static_cast<float>(depth));
+__host__ __device__ float henyeyGreensteinSingle(float cosTheta, float gPure, VolumeData& vd) {
+     float gMulti = gPure * powf(vd.gDecay, static_cast<float>(vd.bounceDepth));
 
     float denom = 1.0f + gMulti*gMulti + 2.0f * gMulti * cosTheta;
     return 0.25 * IPI * (1.0f - gMulti*gMulti) / (denom * max(1e-5, sqrt(denom)));
 }
 
-__host__ __device__ float henyeyGreensteinDouble(float cosTheta, float g1, float g2, float blend, int depth) {
-    return henyeyGreensteinSingle(cosTheta, g1, depth) * (1.0f - blend) + henyeyGreensteinSingle(cosTheta, g2, depth) * blend;
+__host__ __device__ float henyeyGreensteinDouble(float cosTheta, float g1, float g2, float blend, VolumeData& vd) {
+    return henyeyGreensteinSingle(cosTheta, g1, vd) * (1.0f - blend) + henyeyGreensteinSingle(cosTheta, g2, vd) * blend;
 }
 
-__host__ __device__ glm::vec3 sampleHenyeyGreensteinSingle(glm::vec3 wo, float gPure, int depth, thrust::default_random_engine& rng, float& outPdf) {
+__host__ __device__ glm::vec3 sampleHenyeyGreensteinSingle(glm::vec3 wo, float gPure, VolumeData& vd, thrust::default_random_engine& rng, float& outPdf) {
       thrust::uniform_real_distribution u01(0.0f, 1.0f);
       glm::vec2 xi = glm::vec2(u01(rng), u01(rng));
-      float gMulti = gPure * powf(G_DECAY, static_cast<float>(depth));
+      float gMulti = gPure * powf(vd.gDecay, static_cast<float>(vd.bounceDepth));
 
         float cosTheta;
         if (glm::abs(gMulti) < 1e-3f)
@@ -32,17 +30,17 @@ __host__ __device__ glm::vec3 sampleHenyeyGreensteinSingle(glm::vec3 wo, float g
         glm::mat3 wFrame = FrameFromZ(wo);
         glm::vec3 wi = wFrame * (SphericalDirection(cosTheta, sinTheta, phi));
 
-       outPdf = henyeyGreensteinSingle(cosTheta, gPure, depth);
+       outPdf = henyeyGreensteinSingle(cosTheta, gPure, vd);
        return wi;
 }
 
-__host__ __device__ glm::vec3 sampleHenyeyGreensteinDouble(glm::vec3 wo, float g1, float g2, float blend, int depth, thrust::default_random_engine& rng, float& outPdf) {
+__host__ __device__ glm::vec3 sampleHenyeyGreensteinDouble(glm::vec3 wo, float g1, float g2, float blend, VolumeData& vd, thrust::default_random_engine& rng, float& outPdf) {
     thrust::uniform_real_distribution u01(0.0f, 1.0f);
 
     bool gChoice = u01(rng) <= blend;
     float g = gChoice ? g2 : g1;
     float pdf = 100.0f;
-    glm::vec3 wi = sampleHenyeyGreensteinSingle(wo, g, depth, rng, pdf);
+    glm::vec3 wi = sampleHenyeyGreensteinSingle(wo, g, vd, rng, pdf);
 
     outPdf = pdf * (gChoice ? blend : 1.0f - blend);
 

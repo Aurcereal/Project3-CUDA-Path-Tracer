@@ -17,14 +17,14 @@ __host__ __device__ inline nanovdb::Coord getCoord(vec3 ro, vec3 rd, float t) {
 
 #define VDBTRAVERSEEPS 1e-4f
 
-__host__ __device__  float vdbIntersectionTest(void* vGrid, int depth, const Volume& volume, Ray ray, thrust::default_random_engine& rng, float tMax) {
+__host__ __device__  float vdbIntersectionTest(VolumeData& vd, const Volume& volume, Ray ray, thrust::default_random_engine& rng, float tMax) {
     // BBX
     vec2 ts = bbxIntersectionTest(ray, volume.invTransform * volume.userInvTransform);
     if(ts.x >= ts.y || ts.y < 0.0f) return -1.0f;
     tMax = min(tMax, ts.y);
 
     //
-    nanovdb::FloatGrid* grid = (nanovdb::FloatGrid*)vGrid;
+    nanovdb::FloatGrid* grid = (nanovdb::FloatGrid*)vd.density;
     auto accessor = grid->getAccessor();
 
     vec3 lro = grid->worldToIndex(vec3(volume.userInvTransform * vec4(ray.origin, 1.0f)));
@@ -37,7 +37,7 @@ __host__ __device__  float vdbIntersectionTest(void* vGrid, int depth, const Vol
     nanovdb::Coord ijk;
     glm::vec3 currPnt;
 
-    float multiDensityMult = powf(EXTINCTION_DECAY, static_cast<float>(depth));
+    float multiDensityMult = powf(vd.densityDecay, static_cast<float>(vd.bounceDepth));
 
     while(t < tMax) {
         bool uniformMode = false;
