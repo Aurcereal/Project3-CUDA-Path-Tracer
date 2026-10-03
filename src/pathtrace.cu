@@ -20,6 +20,8 @@
 #include "Volume/vdb_usage.h"
 #include "Volume/vdb_loading.h"
 
+#include "Temperature/temperature.h"
+
 #define ERRORCHECK 1
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
@@ -88,6 +90,7 @@ static Material* dev_materials = NULL;
 static PathSegment* dev_paths = NULL;
 static ShadeableIntersection* dev_intersections = NULL;
 static void* d_density = NULL;
+static void* d_temperature = NULL;
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
 
@@ -113,7 +116,10 @@ void pathtraceInit(Scene* scene)
     const Camera& cam = hst_scene->state.camera;
     const int pixelcount = cam.resolution.x * cam.resolution.y;
 
-    LoadNVDB(hst_scene->vdbFileName, &hst_scene->volumes[0].invTransform, &d_density);//CreateTestNVDB(&hst_scene->volumes[0].invTransform, &d_density);
+    if (!LoadNVDB(hst_scene->vdbFileName, &hst_scene->volumes[0].invTransform, &d_density, "density"))
+        std::cerr << "Failed to find density grid in file: " << hst_scene->vdbFileName.c_str() << std::endl;
+    if (!LoadNVDB(hst_scene->vdbFileName, &hst_scene->volumes[0].invTransform, &d_temperature, "temperature"))
+        std::cerr << "Failed to find temperature grid in file: " << hst_scene->vdbFileName.c_str() << std::endl;
 
     cudaMalloc(&dev_image, pixelcount * sizeof(glm::vec3));
     cudaMemset(dev_image, 0, pixelcount * sizeof(glm::vec3));
@@ -354,6 +360,16 @@ __global__ void shadeMaterial(
                     p.ray.origin = hitPoint;
                     p.ray.direction = wi;
 
+                    if(vd.temperature) {
+                        const float temperatureScale = 1.0f;
+                        const float emissionScale = 4.0f;
+                        const float emissionContrast = 2.0f;
+                        float temperature = temperatureScale * sampleTemperature(hitPoint, vd, vd.volumes[intersection.geomId]);
+                        glm::vec3 baseEmission = kelvin_to_rgb(temperature);
+                        glm::vec3 emission = pow(baseEmission, glm::vec3(emissionContrast)) * emissionScale;
+                        image[p.pixelIndex] += p.color * emission;
+                    }
+
                     colorMult = material.color * powf(vd.scatteringDecay/vd.densityDecay, static_cast<float>(depth));
                 } else {
                     // Bounce & Update Throughput
@@ -412,6 +428,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
     vd.volumes = dev_volumes;
     vd.num_volumes = hst_scene->volumes.size();
     vd.density = d_density;
+    vd.temperature = d_temperature;
     vd.bounceDepth = -1;
     vd.gDecay = 1.0f;// 0.75f;
     vd.densityDecay = 1.0f;// 0.75f;

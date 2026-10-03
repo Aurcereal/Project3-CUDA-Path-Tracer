@@ -55,6 +55,7 @@ struct VolumeData {
     int num_volumes;
 
     void* density;
+    void* temperature;
     int bounceDepth;
 
     float gDecay;

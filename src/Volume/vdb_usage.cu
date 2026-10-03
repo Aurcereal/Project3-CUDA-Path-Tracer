@@ -17,6 +17,17 @@ __host__ __device__ inline nanovdb::Coord getCoord(vec3 ro, vec3 rd, float t) {
 
 #define VDBTRAVERSEEPS 1e-4f
 
+__host__ __device__ float sampleTemperature(vec3 pos, VolumeData& vd, const Volume& volume) { // Maybe can put grid pointers in volume itself, VolumeData only for current overall specs
+    nanovdb::FloatGrid* grid = (nanovdb::FloatGrid*)vd.temperature;
+    auto accessor = grid->getAccessor();
+
+    auto coord = toCoord(
+        grid->worldToIndex(vec3(volume.userInvTransform * vec4(pos, 1.0f)))
+    );
+    //accessor.isActive()
+    return accessor.getValue(coord); // make sure if it's invalid pos it just returns 0 or something right
+}
+
 __host__ __device__  float vdbIntersectionTest(VolumeData& vd, const Volume& volume, Ray ray, thrust::default_random_engine& rng, float tMax) {
     // BBX
     vec2 ts = bbxIntersectionTest(ray, volume.invTransform * volume.userInvTransform);
@@ -43,6 +54,8 @@ __host__ __device__  float vdbIntersectionTest(VolumeData& vd, const Volume& vol
         bool uniformMode = false;
 
         currPnt = lro + lrd * t;
+
+        // Find active lower node
         const nanovdb::NanoLower<float>* lowerNode = grid->tree().template get<nanovdb::GetLower<float>>(toCoord(currPnt));
         while ((lowerNode == nullptr || lowerNode->getMax() <= 0.0f) && t < tMax) {
             nanovdb::Coord coord = toCoord(currPnt);
@@ -56,6 +69,7 @@ __host__ __device__  float vdbIntersectionTest(VolumeData& vd, const Volume& vol
             lowerNode = grid->tree().template get<nanovdb::GetLower<float>>(toCoord(currPnt));
         }
 
+        // Find leaf with a child or a uniform value
         const nanovdb::NanoLeaf<float>* leafNode = grid->tree().template get<nanovdb::GetLeaf<float>>(toCoord(currPnt));
         while (!uniformMode && (leafNode == nullptr || leafNode->getMax() <= 0.0f) && t < tMax) {
             nanovdb::Coord coord = toCoord(currPnt);
@@ -77,6 +91,7 @@ __host__ __device__  float vdbIntersectionTest(VolumeData& vd, const Volume& vol
         float currMax = uniformMode ? accessor.getValue(ijk) : leafNode->getMax();
         float deltaT = -log(max(1e-5f, u01(rng))) / (volume.extinctionMult * currMax * multiDensityMult);
 
+        // If the woodcock step goes past the max extinction bbx, go to box and continue with no events
         vec3 bbxMin = vec3(ijk.x() & ~7, ijk.y() & ~7, ijk.z() & ~7); // TODO: turn this bbx stuff into a inline func or smth
         vec3 bbxMax = bbxMin + vec3(8);
         float deltaTcap = alignedBbxIntersectionTest(currPnt, lrd, bbxMin, bbxMax).y;
@@ -94,7 +109,7 @@ __host__ __device__  float vdbIntersectionTest(VolumeData& vd, const Volume& vol
         ijk = getCoord(lro, lrd, t);
         float extinction = uniformMode ? currMax : accessor.getValue(ijk);
 
-        if(u01(rng) <= extinction / currMax)
+        if(u01(rng) <= extinction / currMax) //todo: Lower density according to temperature sample.. im guessing here but maybe it's better to do it in currMax (coarser tho)
             return t;
 
         // Iter cap
@@ -104,3 +119,4 @@ __host__ __device__  float vdbIntersectionTest(VolumeData& vd, const Volume& vol
 
     return -1.0f;
 }
+

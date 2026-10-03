@@ -36,13 +36,13 @@ void CreateTestNVDB(mat4* invTransform, void** d_grid) {
 	*invTransform = glm::inverse(glm::translate(mat4(1.0f), avg) * glm::scale(mat4(1.0f), scale));
 }
 
-void LoadNVDB(const std::string& fileName, mat4* invTransform, void** d_grid) {
+bool LoadNVDB(const std::string& fileName, mat4* invTransform, void** d_grid, std::string gridName) {
 	//auto gridHandle = nanovdb::io::readGrid<nanovdb::CudaDeviceBuffer>(fileName);
 	//if (!gridHandle.grid<float>()) throw std::runtime_error(fileName + " doesn't exist or contain float grid!");
 	//gridHandle.deviceUpload(); // Upload to device
 	//*d_grid = gridHandle.deviceGrid<float>();
 
-	auto hostHandle = nanovdb::io::readGrid<nanovdb::HostBuffer>(fileName);
+	auto hostHandle = nanovdb::io::readGrid<nanovdb::HostBuffer>(fileName, gridName);
 
 	*d_grid = NULL;
 	cudaMalloc(d_grid, hostHandle.size());
@@ -61,4 +61,6 @@ void LoadNVDB(const std::string& fileName, mat4* invTransform, void** d_grid) {
 	vec3 scale = bbxMax - bbxMin;
 	
 	*invTransform = glm::inverse(glm::translate(mat4(1.0f), avg) * glm::scale(mat4(1.0f), scale));
+
+	return true;
 }
