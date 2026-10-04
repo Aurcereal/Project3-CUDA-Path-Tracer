@@ -5,7 +5,7 @@
         {
             "TYPE":"Emitting",
             "RGB":[1.0, 1.0, 1.0],
-            "EMITTANCE":15.0
+            "EMITTANCE":45.0
         },
         "diffuse_white":
         {
@@ -44,7 +44,7 @@
         "ITERATIONS":5000,
         "DEPTH":8,
         "FILE":"cornell",
-        "EYE":[0.0,5.0,10.5],
+        "EYE":[0.0,5.0,17.4],
         "LOOKAT":[0.0,5.0,0.0],
         "UP":[0.0,1.0,0.0]
     },
@@ -53,14 +53,14 @@
         {
             "TYPE":"plane",
             "MATERIAL":"light",
-            "TRANS":[0.0,14.9,0.0],
+            "TRANS":[0.0,44.9,0.0],
             "ROTAT":[90.0,0.0,0.0],
             "SCALE":[5.0,5.0,1.0]
         },
         {
             "TYPE":"cube",
             "MATERIAL":"diffuse_white",
-            "TRANS":[0.0,-3.0,0.0],
+            "TRANS":[0.0,-6.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[100.0,0.01,100.0]
         }
@@ -69,8 +69,8 @@
     [
         {
             "MATERIAL":"explosion",
-            "DENSITYMULT":2,
-            "TRANS":[0.0,5.0,0.0],
+            "DENSITYMULT":20,
+            "TRANS":[0.0,9.5,0.0],
             "ROTAT":[-90.0,0.0,90.0],
             "SCALE":[0.04,0.04,0.04],
             "VDBFILE":"../AerialExplosion_0048.nvdb"

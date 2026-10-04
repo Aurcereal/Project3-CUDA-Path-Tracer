@@ -42,6 +42,9 @@ bool LoadNVDB(const std::string& fileName, mat4* invTransform, void** d_grid, st
 	//gridHandle.deviceUpload(); // Upload to device
 	//*d_grid = gridHandle.deviceGrid<float>();
 
+	if (!nanovdb::io::hasGrid(fileName, gridName))
+		return false;
+
 	auto hostHandle = nanovdb::io::readGrid<nanovdb::HostBuffer>(fileName, gridName);
 
 	*d_grid = NULL;

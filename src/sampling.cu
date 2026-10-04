@@ -26,7 +26,7 @@ __host__ __device__ void sampleRandomLight(Geom* geo, int num_geoms, VolumeData&
     float bsdfPdf = 0.0f;
     if (m.isVolume) {
         bsdfPdf = henyeyGreensteinDouble(dot(wi, wo), m.g1, m.g2, m.gBlend, vd);
-        fLambert = glm::vec3(bsdfPdf);
+        fLambert = m.color * glm::vec3(bsdfPdf);
     }
     else {
         bsdfPdf = pdfBSDF(wi, normal, m, fLambert);

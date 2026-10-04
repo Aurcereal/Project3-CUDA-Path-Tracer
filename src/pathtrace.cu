@@ -57,7 +57,7 @@ thrust::default_random_engine makeSeededRandomEngine(int iter, int index, int de
 }
 
 //Kernel that writes the image to the OpenGL PBO directly.
-__global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution, int iter, glm::vec3* image)
+__global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution, int iter, glm::vec3* image, int colorCorrection)
 {
     int x = (blockIdx.x * blockDim.x) + threadIdx.x;
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -67,10 +67,18 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution, int iter, glm
         int index = x + (y * resolution.x);
         glm::vec3 pix = image[index];
 
+        glm::vec3 col = pix / static_cast<float>(iter);
+
+        // Gamma Reinhard
+        if (colorCorrection == 1) {
+            col = col / (glm::vec3(1.0f) + col);
+            col = pow(col, glm::vec3(2.2f));
+        }
+
         glm::ivec3 color;
-        color.x = glm::clamp((int)(pix.x / iter * 255.0), 0, 255);
-        color.y = glm::clamp((int)(pix.y / iter * 255.0), 0, 255);
-        color.z = glm::clamp((int)(pix.z / iter * 255.0), 0, 255);
+        color.x = glm::clamp((int)(col.x * 255.0), 0, 255);
+        color.y = glm::clamp((int)(col.y * 255.0), 0, 255);
+        color.z = glm::clamp((int)(col.z * 255.0), 0, 255);
 
         // Each thread writes one pixel location in the texture (textel)
         pbo[index].w = 0;
@@ -385,7 +393,7 @@ __global__ void shadeMaterial(
                 p.color *= colorMult;
                 p.lastBsdfPdf = pdf;
                 p.remainingBounces--;
-
+                
             }
             // If there was no intersection, color the ray black.
             // Lots of renderers use 4 channel color, RGBA, where A = alpha, often
@@ -409,7 +417,7 @@ __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iteration
     if (index < nPaths)
     {
         PathSegment iterationPath = iterationPaths[index];
-        //image[iterationPath.pixelIndex] += iterationPath.color;
+        image[iterationPath.pixelIndex] += iterationPath.color;
     }
 }
 
@@ -428,7 +436,7 @@ void pathtrace(uchar4* pbo, int frame, int iter)
     vd.volumes = dev_volumes;
     vd.num_volumes = hst_scene->volumes.size();
     vd.density = d_density;
-    vd.temperature = d_temperature;
+    vd.temperature = guiData->UseTemperature ? d_temperature : nullptr;
     vd.bounceDepth = -1;
     vd.gDecay = 1.0f;// 0.75f;
     vd.densityDecay = 1.0f;// 0.75f;
@@ -550,13 +558,13 @@ void pathtrace(uchar4* pbo, int frame, int iter)
     }
 
     //// Assemble this iteration and apply it to the image
-    //dim3 numBlocksPixels = (pixelcount + blockSize1d - 1) / blockSize1d;
+    dim3 numBlocksPixels = (pixelcount + blockSize1d - 1) / blockSize1d;
     //finalGather<<<numBlocksPixels, blockSize1d>>>(num_paths, dev_image, dev_paths);
 
     ///////////////////////////////////////////////////////////////////////////
 
     // Send results to OpenGL buffer for rendering
-    sendImageToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, iter, dev_image);
+    sendImageToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, iter, dev_image, guiData->ColorCorrection);
 
     // Retrieve image from GPU
     cudaMemcpy(hst_scene->state.image.data(), dev_image,

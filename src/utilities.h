@@ -32,6 +32,9 @@ public:
     bool UseDepthOfField = false;
     float FocalDistance = 11.5f;
     float ApertureFNumber = 10.0f;
+    int ColorCorrection = 1;
+
+    bool UseTemperature = true;
 };
 
 namespace utilityCore
