@@ -31,7 +31,7 @@
         "explosion":
         {
             "TYPE":"Volume",
-            "RGB":[0.4,0.4,0.4],
+            "RGB":[0.1,0.1,0.1],
             "G1": 0.2,
             "G2": -0.1,
             "GBLEND": 0.3
@@ -69,7 +69,7 @@
     [
         {
             "MATERIAL":"explosion",
-            "DENSITYMULT":20,
+            "DENSITYMULT":5,
             "TRANS":[0.0,9.5,0.0],
             "ROTAT":[-90.0,0.0,90.0],
             "SCALE":[0.04,0.04,0.04],

@@ -61,6 +61,13 @@ struct VolumeData {
     float gDecay;
     float densityDecay;
     float scatteringDecay;
+
+    float temperatureScale;
+
+    float emissionContrast;
+    float emissionScale;
+
+    float extinctionMult;
 };
 
 struct Material

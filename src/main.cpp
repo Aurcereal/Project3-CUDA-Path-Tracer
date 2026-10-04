@@ -34,6 +34,7 @@ static double lastX;
 static double lastY;
 
 static bool camchanged = true;
+static bool importantparamchanged = false;
 static float dtheta = 0, dphi = 0;
 static glm::vec3 cammove;
 
@@ -294,7 +295,7 @@ void RenderImGui()
     ImGui::Checkbox("Sort Rays by Material", &imguiData->SortRaysByMaterial);
     if(ImGui::CollapsingHeader("Camera")) {
         char* colorCorrectionOptions[2] = { "None", "Gamma Reinhard" };
-        ImGui::Combo("Color Correction", &imguiData->ColorCorrection, colorCorrectionOptions, 2);
+        if (ImGui::Combo("Color Correction", &imguiData->ColorCorrection, colorCorrectionOptions, 2)) importantparamchanged = true;
 
         ImGui::Checkbox("Depth of Field", &imguiData->UseDepthOfField);
         if (imguiData->UseDepthOfField) {
@@ -304,7 +305,14 @@ void RenderImGui()
     }
 
     if (ImGui::CollapsingHeader("Volume")) {
-        ImGui::Checkbox("Use Temperature", &imguiData->UseTemperature);
+        if (ImGui::SliderFloat("Density Multiplier", &imguiData->DensityMultiplier, 0.01f, 100.0f, "%.2f", ImGuiSliderFlags_Logarithmic)) importantparamchanged = true;
+
+        if (ImGui::Checkbox("Use Temperature", &imguiData->UseTemperature)) importantparamchanged = true;
+        if (imguiData->UseTemperature) {
+            if (ImGui::SliderFloat("Temperature Scale", &imguiData->TemperatureScale, 0.01f, 4.0f, "%.2f")) importantparamchanged = true;
+            if (ImGui::SliderFloat("Emission Scale", &imguiData->EmissionScale, 1.0f, 200.0f, "%.1f")) importantparamchanged = true;
+            if (ImGui::SliderFloat("Emission Contrast", &imguiData->EmissionContrast, 1.0f, 4.0f, "%.1f")) importantparamchanged = true;
+        }
     }
 
     ImGui::Separator();
@@ -432,7 +440,15 @@ void saveImage()
         {
             int index = x + (y * width);
             glm::vec3 pix = renderState->image[index];
-            img.setPixel(width - 1 - x, y, glm::vec3(pix) / samples);
+
+            // Gamma Reinhard
+            glm::vec3 col = pix / static_cast<float>(samples);
+            if (guiData->ColorCorrection == 1) {
+                col = col / (glm::vec3(1.0f) + col);
+                col = pow(col, glm::vec3(2.2f));
+            }
+
+            img.setPixel(width - 1 - x, y, col);
         }
     }
 
@@ -467,6 +483,11 @@ void runCuda()
         cameraPosition += cam.lookAt;
         cam.position = cameraPosition;
         camchanged = false;
+    }
+
+    if (importantparamchanged) {
+        iteration = 0;
+        importantparamchanged = false;
     }
 
     // Map OpenGL buffer object for writing from CUDA on a single GPU

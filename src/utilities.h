@@ -34,6 +34,11 @@ public:
     float ApertureFNumber = 10.0f;
     int ColorCorrection = 1;
 
+    float DensityMultiplier = 1.0f;
+    float TemperatureScale = 1.0f;
+    float EmissionScale = 50.0f;
+    float EmissionContrast = 2.0f;
+
     bool UseTemperature = true;
 };
 

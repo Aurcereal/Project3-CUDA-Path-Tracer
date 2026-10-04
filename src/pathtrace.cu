@@ -369,12 +369,10 @@ __global__ void shadeMaterial(
                     p.ray.direction = wi;
 
                     if(vd.temperature) {
-                        const float temperatureScale = 1.0f;
-                        const float emissionScale = 4.0f;
-                        const float emissionContrast = 2.0f;
-                        float temperature = temperatureScale * sampleTemperature(hitPoint, vd, vd.volumes[intersection.geomId]);
+                        // Scale input temperature, convert to rgb, add some contrast and another scale
+                        float temperature = vd.temperatureScale * sampleTemperature(hitPoint, vd, vd.volumes[intersection.geomId]);
                         glm::vec3 baseEmission = kelvin_to_rgb(temperature);
-                        glm::vec3 emission = pow(baseEmission, glm::vec3(emissionContrast)) * emissionScale;
+                        glm::vec3 emission = pow(baseEmission, glm::vec3(vd.emissionContrast)) * vd.emissionScale;
                         image[p.pixelIndex] += p.color * emission;
                     }
 
@@ -441,6 +439,10 @@ void pathtrace(uchar4* pbo, int frame, int iter)
     vd.gDecay = 1.0f;// 0.75f;
     vd.densityDecay = 1.0f;// 0.75f;
     vd.scatteringDecay = 1.0f;// 0.75f;
+    vd.temperatureScale = guiData->TemperatureScale;
+    vd.emissionScale = guiData->EmissionScale;
+    vd.emissionContrast = guiData->EmissionContrast;
+    vd.extinctionMult = guiData->DensityMultiplier;
 
     const int traceDepth = hst_scene->state.traceDepth;
     const Camera& cam = hst_scene->state.camera;
