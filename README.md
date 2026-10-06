@@ -11,7 +11,7 @@ CUDA Path Tracer
 
 ## Features
 
-This is a GPU renderer built in C++ and CUDA.  It uses path-tracing to render scenes and how the light bounces around in them realistically.  It features
+This is a GPU renderer built in C++ and CUDA.  It uses path-tracing to render scenes and the light that bounces around in them realistically.  It features
 
 - Wavefront Pathtracing used to improve warp coherence
 - Multiple Importance Sampling
