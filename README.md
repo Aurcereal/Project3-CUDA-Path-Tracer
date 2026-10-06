@@ -9,6 +9,8 @@ CUDA Path Tracer
 
 ## Renders
 
+https://github.com/user-attachments/assets/df9dcd60-0f44-4d22-8d29-5f84bd407066
+
 ## Features
 
 This is a GPU renderer built in C++ and CUDA.  It uses path-tracing to render scenes and the light that bounces around in them realistically.  It features
