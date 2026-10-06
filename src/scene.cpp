@@ -10,7 +10,9 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <unordered_map>
+
+#include <sstream>
+#include <iomanip>
 
 using namespace std;
 using json = nlohmann::json;
@@ -23,6 +25,7 @@ Scene::Scene(string filename)
     if (ext == ".json")
     {
         loadFromJSON(filename);
+        setFrame(0);
         return;
     }
     else
@@ -30,6 +33,19 @@ Scene::Scene(string filename)
         cout << "Couldn't read from " << filename << endl;
         exit(-1);
     }
+
+}
+
+void Scene::setFrame(int i)
+{
+    // Only volumes load rn
+    int charInd = vdbFileName.find("{i}");
+    std::ostringstream indSStr;
+    indSStr << setfill('0') << setw(4) << i;
+    std::string indStr = indSStr.str();
+
+    vdbFileNameCurrent = vdbFileName;
+    if (charInd != -1) vdbFileNameCurrent.replace(charInd, 3, indStr);
 }
 
 void Scene::loadFromJSON(const std::string& jsonName)

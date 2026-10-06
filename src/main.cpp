@@ -23,6 +23,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <iomanip>
 
 static std::string startTimeString;
 
@@ -35,6 +36,7 @@ static double lastY;
 
 static bool camchanged = true;
 static bool importantparamchanged = false;
+bool frameindexchanged = false;
 static float dtheta = 0, dphi = 0;
 static glm::vec3 cammove;
 
@@ -255,6 +257,7 @@ void InitImguiData(GuiDataContainer* guiData)
     imguiData = guiData;
 }
 
+void renderAnimation();
 
 // LOOK: Un-Comment to check ImGui Usage
 void RenderImGui()
@@ -283,7 +286,15 @@ void RenderImGui()
     //    counter++;
     //ImGui::SameLine();
     //ImGui::Text("counter = %d", counter);
-    ImGui::Begin("Pathtracer");
+
+    // TODO: change 119 to json var
+    ImGui::Text("Rendering");
+    if (ImGui::SliderInt("Frame Index", &imguiData->FrameIndex, 0, 119)) frameindexchanged = true;
+    ImGui::InputInt("Animation Iteration Count", &imguiData->AnimationIterationCount, 50, 200);
+    if (ImGui::Button("Render Animation")) {
+        renderAnimation();
+    }
+
     ImGui::Separator();
     ImGui::Text("Settings");
 
@@ -310,7 +321,7 @@ void RenderImGui()
         if (ImGui::Checkbox("Use Temperature", &imguiData->UseTemperature)) importantparamchanged = true;
         if (imguiData->UseTemperature) {
             if (ImGui::SliderFloat("Temperature Scale", &imguiData->TemperatureScale, 0.01f, 4.0f, "%.2f")) importantparamchanged = true;
-            if (ImGui::SliderFloat("Emission Scale", &imguiData->EmissionScale, 1.0f, 200.0f, "%.1f")) importantparamchanged = true;
+            if (ImGui::SliderFloat("Emission Scale", &imguiData->EmissionScale, 1.0f, 1500.0f, "%.1f", ImGuiSliderFlags_Logarithmic)) importantparamchanged = true;
             if (ImGui::SliderFloat("Emission Contrast", &imguiData->EmissionContrast, 1.0f, 4.0f, "%.1f")) importantparamchanged = true;
         }
     }
@@ -452,14 +463,46 @@ void saveImage()
         }
     }
 
-    std::string filename = renderState->imageName;
     std::ostringstream ss;
-    ss << filename << "." << startTimeString << "." << samples << "samp";
+    std::string filename = renderState->imageName;
+    ss << filename << "." << std::setfill('0') << std::setw(4) << guiData->FrameIndex;// startTimeString << "." << samples << "samp";
     filename = ss.str();
 
     // CHECKITOUT
     img.savePNG(filename);
     //img.saveHDR(filename);  // Save a Radiance HDR file
+}
+
+void renderIter() {
+    uchar4* pbo_dptr = NULL;
+    iteration++;
+    cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
+
+    // execute the kernel
+    int frame = 0;
+    pathtrace(pbo_dptr, frame, iteration);
+
+    // unmap buffer object
+    cudaGLUnmapBufferObject(pbo);
+}
+
+void renderAnimation() {
+    for (int i = 0; i <= 119; ++i) {
+        imguiData->FrameIndex = i;
+        iteration = 0;
+
+        scene->setFrame(imguiData->FrameIndex);
+        pathtraceFree();
+        pathtraceInit(scene);
+
+        for (int k = 0; k < imguiData->AnimationIterationCount; k++) {
+            renderIter();
+            std::cout << "did iter " << k << std::endl;
+        }
+
+        saveImage();
+
+    }
 }
 
 void runCuda()
@@ -490,6 +533,12 @@ void runCuda()
         importantparamchanged = false;
     }
 
+    if (frameindexchanged) {
+        iteration = 0;
+        frameindexchanged = false;
+        scene->setFrame(imguiData->FrameIndex);
+    }
+
     // Map OpenGL buffer object for writing from CUDA on a single GPU
     // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
 
@@ -501,16 +550,7 @@ void runCuda()
 
     if (iteration < renderState->iterations)
     {
-        uchar4* pbo_dptr = NULL;
-        iteration++;
-        cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
-
-        // execute the kernel
-        int frame = 0;
-        pathtrace(pbo_dptr, frame, iteration);
-
-        // unmap buffer object
-        cudaGLUnmapBufferObject(pbo);
+        renderIter();
     }
     else
     {

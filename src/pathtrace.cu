@@ -124,10 +124,10 @@ void pathtraceInit(Scene* scene)
     const Camera& cam = hst_scene->state.camera;
     const int pixelcount = cam.resolution.x * cam.resolution.y;
 
-    if (!LoadNVDB(hst_scene->vdbFileName, &hst_scene->volumes[0].invTransform, &d_density, "density"))
-        std::cerr << "Failed to find density grid in file: " << hst_scene->vdbFileName.c_str() << std::endl;
-    if (!LoadNVDB(hst_scene->vdbFileName, &hst_scene->volumes[0].invTransform, &d_temperature, "temperature"))
-        std::cerr << "Failed to find temperature grid in file: " << hst_scene->vdbFileName.c_str() << std::endl;
+    if (!LoadNVDB(hst_scene->vdbFileNameCurrent, &hst_scene->volumes[0].invTransform, &d_density, "density"))
+        std::cerr << "Failed to find density grid in file: " << hst_scene->vdbFileNameCurrent.c_str() << std::endl;
+    if (!LoadNVDB(hst_scene->vdbFileNameCurrent, &hst_scene->volumes[0].invTransform, &d_temperature, "temperature"))
+        std::cerr << "Failed to find temperature grid in file: " << hst_scene->vdbFileNameCurrent.c_str() << std::endl;
 
     cudaMalloc(&dev_image, pixelcount * sizeof(glm::vec3));
     cudaMemset(dev_image, 0, pixelcount * sizeof(glm::vec3));
@@ -159,6 +159,10 @@ void pathtraceFree()
     cudaFree(dev_geoms);
     cudaFree(dev_materials);
     cudaFree(dev_intersections);
+    cudaFree(d_density);
+    cudaFree(d_temperature);
+    cudaFree(dev_volumes);
+    cudaFree(dev_lights);
     // if(hst_scene && hst_scene->d_grid) cudaFree(hst_scene->d_grid);
 
     checkCUDAError("pathtraceFree");
@@ -399,9 +403,9 @@ __global__ void shadeMaterial(
             // This can be useful for post-processing and image compositing.
         }
         else {
-            p.color = glm::vec3(0.0f);
             p.remainingBounces = 0;
-            image[p.pixelIndex] += p.color;
+            image[p.pixelIndex] += p.color * 0.4f * glm::vec3(1.0f);// glm::vec3(0.5f, 0.4f, 1.2f);
+            p.color = glm::vec3(0.0f);
         }
     }
 }

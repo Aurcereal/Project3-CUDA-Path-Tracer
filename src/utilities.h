@@ -24,9 +24,12 @@ class GuiDataContainer
 public:
     GuiDataContainer() : TracedDepth(0) {}
     int TracedDepth;
-    bool SortRaysByMaterial;
-    
+
     // Settings
+    bool SortRaysByMaterial;
+    int FrameIndex = 0;
+    int AnimationIterationCount = 1000;
+    
     int MaxDepth = 5;
     int RenderType = 1;
     bool UseDepthOfField = false;

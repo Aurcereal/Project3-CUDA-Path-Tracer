@@ -7,6 +7,7 @@ class Scene
 {
 private:
     void loadFromJSON(const std::string& jsonName);
+    std::string vdbFileName;
 public:
     Scene(std::string filename);
 
@@ -16,5 +17,7 @@ public:
     std::vector<Light> lights;
     RenderState state;
 
-    std::string vdbFileName;
+    std::string vdbFileNameCurrent;
+
+    void setFrame(int i);
 };
