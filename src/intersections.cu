@@ -227,7 +227,7 @@ __host__ __device__ void sceneIntersectionTest(Geom* geoms, VolumeData& vd, Ray 
         }
     }
 
-    for(int i=0; i<1; ++i) {
+    for(int i=0; i<vd.num_volumes; ++i) {
         const Volume& v = vd.volumes[i];
 
 #if 1

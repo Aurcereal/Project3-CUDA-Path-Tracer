@@ -5,7 +5,7 @@
         {
             "TYPE":"Emitting",
             "RGB":[1.0, 1.0, 1.0],
-            "EMITTANCE":800.0
+            "EMITTANCE":1.0
         },
         "diffuse_white":
         {
@@ -28,13 +28,13 @@
             "RGB":[0.98, 0.98, 0.98],
             "ROUGHNESS":0.0
         },
-        "cloud":
+        "explosion":
         {
             "TYPE":"Volume",
-            "RGB":[1.0,1.0,1.0],
-            "G1": 0.9,
-            "G2": -0.4,
-            "GBLEND": 0.3
+            "RGB":[0.25,0.25,0.25],
+            "G1": 0.5,
+            "G2": 0.5,
+            "GBLEND": 0.0
         }
     },
     "Camera":
@@ -43,9 +43,9 @@
         "FOVY":45.0,
         "ITERATIONS":5000,
         "DEPTH":8,
-        "FILE":"cornell",
-        "EYE":[-4.0,4.0,11.5],
-        "LOOKAT":[0.0,4.0,0.0],
+        "FILE":"aerial_explosion",
+        "EYE":[0.0,5.0,17.4],
+        "LOOKAT":[0.0,5.0,0.0],
         "UP":[0.0,1.0,0.0]
     },
     "Objects":
@@ -53,27 +53,27 @@
         {
             "TYPE":"plane",
             "MATERIAL":"light",
-            "TRANS":[0.0,18.9,0.0],
-            "ROTAT":[90.0,0.0,0.0],
-            "SCALE":[2.5,2.5,1.0]
+            "TRANS":[0.0,2.0,19.0],
+            "ROTAT":[0.0,0.0,0.0],
+            "SCALE":[15.0,15.0,1.0]
         },
         {
-            "TYPE":"cube",
+            "TYPE":"sphere",
             "MATERIAL":"diffuse_white",
-            "TRANS":[0.0,-116.0,0.0],
+            "TRANS":[0.0,2.0,8],
             "ROTAT":[0.0,0.0,0.0],
-            "SCALE":[250.0,0.01,250.0]
+            "SCALE":[4.0,4.0,4.0]
         }
     ],
     "Volumes":
     [
         {
-            "MATERIAL":"cloud",
-            "DENSITYMULT":20,
-            "TRANS":[0.0,5.0,0.0],
+            "MATERIAL":"explosion",
+            "DENSITYMULT":5,
+            "TRANS":[0.0,9.5,0.0],
             "ROTAT":[-90.0,0.0,90.0],
             "SCALE":[0.04,0.04,0.04],
-            "VDBFILE":"../cloud{i}.nvdb"
+            "VDBFILE":"../AerialExplosion/AerialExplosion_{i}.nvdb"
         }
     ]
 }

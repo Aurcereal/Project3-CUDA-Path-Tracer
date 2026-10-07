@@ -50,6 +50,8 @@ void Scene::setFrame(int i)
 
 void Scene::loadFromJSON(const std::string& jsonName)
 {
+    vdbFileName = "NONE";
+
     std::ifstream f(jsonName);
     json data = json::parse(f);
     const auto& materialsData = data["Materials"];

@@ -124,10 +124,12 @@ void pathtraceInit(Scene* scene)
     const Camera& cam = hst_scene->state.camera;
     const int pixelcount = cam.resolution.x * cam.resolution.y;
 
-    if (!LoadNVDB(hst_scene->vdbFileNameCurrent, &hst_scene->volumes[0].invTransform, &d_density, "density"))
-        std::cerr << "Failed to find density grid in file: " << hst_scene->vdbFileNameCurrent.c_str() << std::endl;
-    if (!LoadNVDB(hst_scene->vdbFileNameCurrent, &hst_scene->volumes[0].invTransform, &d_temperature, "temperature"))
-        std::cerr << "Failed to find temperature grid in file: " << hst_scene->vdbFileNameCurrent.c_str() << std::endl;
+    if (hst_scene->vdbFileNameCurrent != "NONE") {
+        if (!LoadNVDB(hst_scene->vdbFileNameCurrent, &hst_scene->volumes[0].invTransform, &d_density, "density"))
+            std::cerr << "Failed to find density grid in file: " << hst_scene->vdbFileNameCurrent.c_str() << std::endl;
+        if (!LoadNVDB(hst_scene->vdbFileNameCurrent, &hst_scene->volumes[0].invTransform, &d_temperature, "temperature"))
+            std::cerr << "Failed to find temperature grid in file: " << hst_scene->vdbFileNameCurrent.c_str() << std::endl;
+    }
 
     cudaMalloc(&dev_image, pixelcount * sizeof(glm::vec3));
     cudaMemset(dev_image, 0, pixelcount * sizeof(glm::vec3));
@@ -140,8 +142,10 @@ void pathtraceInit(Scene* scene)
     cudaMalloc(&dev_lights, scene->lights.size() * sizeof(Light));
     cudaMemcpy(dev_lights, scene->lights.data(), scene->lights.size() * sizeof(Light), cudaMemcpyHostToDevice);
 
-    cudaMalloc(&dev_volumes, scene->volumes.size() * sizeof(Volume));
-    cudaMemcpy(dev_volumes, scene->volumes.data(), scene->volumes.size() * sizeof(Volume), cudaMemcpyHostToDevice);
+    if (scene->volumes.size() > 0) {
+        cudaMalloc(&dev_volumes, scene->volumes.size() * sizeof(Volume));
+        cudaMemcpy(dev_volumes, scene->volumes.data(), scene->volumes.size() * sizeof(Volume), cudaMemcpyHostToDevice);
+    }
 
     cudaMalloc(&dev_materials, scene->materials.size() * sizeof(Material));
     cudaMemcpy(dev_materials, scene->materials.data(), scene->materials.size() * sizeof(Material), cudaMemcpyHostToDevice);
@@ -197,13 +201,14 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
         glm::ivec2 cell2d = glm::ivec2(cell1d % sideCellCount, cell1d / sideCellCount);
         glm::vec2 cellPos = glm::vec2(cell2d) * cellSize;
         glm::vec2 offsetInCell = cellSize * glm::vec2(u01(rng), u01(rng));
-        glm::vec2 jitter = cellPos = offsetInCell;
+        glm::vec2 jitter = cellPos + offsetInCell;
 
         segment.ray.direction = glm::normalize(cam.view
             - cam.right * cam.pixelLength.x * ((float)x - (float)cam.resolution.x * 0.5f + jitter.x)
             - cam.up * cam.pixelLength.y * ((float)y - (float)cam.resolution.y * 0.5f + jitter.y)
         );
 
+        // Depth of Field
         glm::vec3 focalPoint = segment.ray.direction * focalDistance / dot(normalize(cam.view), segment.ray.direction);
         glm::vec3 startPoint = glm::mat2x3(cam.right, cam.up) * holeSize * calculateRandomPositionOnDisk(rng);
         segment.ray.direction = normalize(focalPoint-startPoint);
@@ -544,8 +549,8 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 #endif
 
             // Stream compaction
-            dev_path_end = removeUnusedPaths(dev_paths, dev_path_end);// thrustremove_if(thrust::device, dev_paths, dev_path_end, should_remove_path());
-            num_paths = dev_path_end - dev_paths;
+            //dev_path_end = removeUnusedPaths(dev_paths, dev_path_end);// thrustremove_if(thrust::device, dev_paths, dev_path_end, should_remove_path());
+            //num_paths = dev_path_end - dev_paths;
 
             if (num_paths == 0) {
                 iterationComplete = true;
