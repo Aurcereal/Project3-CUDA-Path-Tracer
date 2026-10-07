@@ -144,3 +144,7 @@ Stream compaction will remove rays that stop contributing (ie. fall into void). 
 
 - Spectral Rendering so explosions look more accurate.  I'll also try adding animating fire.
 - Direct Light Sampling of Emissive VDBs
+
+### VDB Sources
+
+All VDBs taken from [JangaFX](https://jangafx.com/software/embergen/download/free-vdb-animations)
