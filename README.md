@@ -4,7 +4,7 @@ CUDA Path Tracer
 **University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 3**
 
 * Aidan
-* [Personal Website](aidanmgideon.com) 
+* [Personal Website](https://aidanmgideon.com) 
 * Tested on: Windows 11, i7-1360P @ 2.20GHz 16GB, RTX 4060 128MB
 
 ## Renders
@@ -54,7 +54,7 @@ MIS builds upon this idea.  We don't always know what direction will give us the
 
 Running MIS on every bounce allows us to accumulate light per bounce, which means we can converge much faster.  Here's a comparison with and without MIS.
 
-| No MIS after 500 Samples | MIS after 500 Samples |
+| MIS after 500 Samples | No MIS after 500 Samples |
 | ---- | ---- |
 | ![](ShowcaseMedia/MIS-500.png) | ![](ShowcaseMedia/Naive-500.png) |
 
@@ -102,13 +102,13 @@ We could naively traverse the VDB by treating it like any other field where we c
 
 In order to traverse this hierarchical grid quickly, we basically do raymarching on the highest level grid until we find a upper level cell that isn't completely empty (would be a green cell in the above image) at which point we jump down to a lower level tree and repeat until eventually we've jumped down to a leaf grid.  At that point, we do our delta tracking of the volume and use the max density of the leaf we're in to see if we actually hit the volume.  We do delta tracking until we hit an inactive part of the voxel world, at which point we repeat our traversal to get to an active leaf and continue delta tracking until our ray finally collides with the cloud and bounces.
 
-![](ShowcaseMedia/cloud_voxel_fail.png)
-
-My voxel traversal had a bug so it looks really voxelly
+| ![](ShowcaseMedia/cloud_voxel_fail.png) |
+| --- |
+| My voxel traversal had a bug so it looked really voxelly |
 
 ![](ShowcaseMedia/cloud_dramatic.png)
 
-But it runs way faster after fixing.  This allows me to use really high bounce counts which makes clouds look nicer too (we want to give rays enough bounces to escape clouds).  Without high bounce counts, clouds look a little too dark.  This is **5000 samples** at **50 ray bounces** where each iteration is about **20-25ms**.
+But it runs way faster after fixing.  This allows me to use really high bounce counts which makes clouds look nicer too (we want to give rays enough bounces to escape clouds).  Without high bounce counts, clouds look a little too dark.  The above shows **5000 samples** at **50 ray bounces** where each iteration is about **20-25ms**.
 
 
 
@@ -144,3 +144,7 @@ Stream compaction will remove rays that stop contributing (ie. fall into void). 
 
 - Spectral Rendering so explosions look more accurate.  I'll also try adding animating fire.
 - Direct Light Sampling of Emissive VDBs
+
+### VDB Sources
+
+All VDBs taken from [JangaFX](https://jangafx.com/software/embergen/download/free-vdb-animations)
