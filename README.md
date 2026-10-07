@@ -4,7 +4,7 @@ CUDA Path Tracer
 **University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 3**
 
 * Aidan
-* [Personal Website](aidanmgideon.com) 
+* [Personal Website](https://aidanmgideon.com) 
 * Tested on: Windows 11, i7-1360P @ 2.20GHz 16GB, RTX 4060 128MB
 
 ## Renders
