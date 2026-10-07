@@ -32,7 +32,7 @@ This is a GPU renderer built in C++ and CUDA.  It uses path-tracing to render sc
 
 ### Wavefront Pathtracing
 
-In order to improve warp coherence, we ues wavefront pathtracing.  We split the normal pathtracing operatins (ray-scene intersect, shade, bounce..) into multiple steps.  While adding overhead, it allows us to have optimizations like **removing paths that don't contribute light early** and **sorting intersections by material so warps are doing similar instructions**.
+In order to improve warp coherence, we use wavefront pathtracing.  We split the normal pathtracing operatins (ray-scene intersect, shade, bounce..) into multiple steps.  While adding overhead, it allows us to have optimizations like **removing paths that don't contribute light early** and **sorting intersections by material so warps are doing similar instructions**.
 
 ### Diffuse Surfaces
 
