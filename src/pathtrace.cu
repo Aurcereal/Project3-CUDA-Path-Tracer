@@ -549,8 +549,8 @@ void pathtrace(uchar4* pbo, int frame, int iter)
 #endif
 
             // Stream compaction
-            //dev_path_end = removeUnusedPaths(dev_paths, dev_path_end);// thrustremove_if(thrust::device, dev_paths, dev_path_end, should_remove_path());
-            //num_paths = dev_path_end - dev_paths;
+            dev_path_end = removeUnusedPaths(dev_paths, dev_path_end);// thrustremove_if(thrust::device, dev_paths, dev_path_end, should_remove_path());
+            num_paths = dev_path_end - dev_paths;
 
             if (num_paths == 0) {
                 iterationComplete = true;
